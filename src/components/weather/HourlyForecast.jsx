@@ -1,104 +1,76 @@
 import { useRef, useEffect } from 'react';
-import { useWeather, WeatherType } from '@/contexts/WeatherContext';
-import { useTheme, TimeOfDay } from '@/contexts/ThemeContext';
-import { 
-  Sun,
-  Cloud,
-  CloudRain,
-  CloudLightning,
-  CloudSnow,
-  CloudFog
-} from 'lucide-react';
+import { useWeather, WeatherIcons } from '@/contexts/WeatherContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useLang } from '@/contexts/LangContext';
+import { ChevronLeft, ChevronRight, Droplets } from 'lucide-react';
 
-// 获取天气图标
-const getWeatherIcon = (weatherType, size = 24) => {
-  const iconProps = { size, strokeWidth: 1.5 };
-  
-  switch (weatherType) {
-    case WeatherType.SUNNY:
-      return <Sun {...iconProps} className="text-yellow-400" />;
-    case WeatherType.CLOUDY:
-      return <Cloud {...iconProps} className="text-gray-400" />;
-    case WeatherType.OVERCAST:
-      return <Cloud {...iconProps} className="text-gray-500" />;
-    case WeatherType.RAIN:
-      return <CloudRain {...iconProps} className="text-blue-400" />;
-    case WeatherType.HEAVY_RAIN:
-      return <CloudRain {...iconProps} className="text-blue-600" />;
-    case WeatherType.THUNDERSTORM:
-      return <CloudLightning {...iconProps} className="text-purple-500" />;
-    case WeatherType.SNOW:
-      return <CloudSnow {...iconProps} className="text-blue-200" />;
-    case WeatherType.FOG:
-    case WeatherType.DUST:
-      return <CloudFog {...iconProps} className="text-gray-400" />;
-    default:
-      return <Cloud {...iconProps} className="text-gray-400" />;
-  }
-};
-
-// 获取时间段图标
-const getTimeIcon = (hour, size = 24) => {
-  const iconProps = { size, strokeWidth: 1.5 };
-  
-  if (hour >= 6 && hour < 18) {
-    return <Sun {...iconProps} className="text-yellow-400" />;
-  } else {
-    return (
-      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-blue-300">
-        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
-      </svg>
-    );
-  }
-};
-
-// 小时天气预报组件
 export default function HourlyForecast() {
   const { hourlyForecast, isLoading } = useWeather();
-  const { timeOfDay } = useTheme();
-  const scrollContainerRef = useRef(null);
-  
+  const { getCardStyle, getTextColor } = useTheme();
+  const { t } = useLang();
+  const scrollRef = useRef(null);
+
   // 滚动到当前时间
   useEffect(() => {
-    if (scrollContainerRef.current && hourlyForecast.length > 0) {
-      // 找到当前时间最接近的预报项
-      const now = new Date();
-      let closestIndex = 0;
-      let minDiff = Infinity;
-      
-      hourlyForecast.forEach((forecast, index) => {
-        const forecastTime = new Date(forecast.time);
-        const diff = Math.abs(forecastTime - now);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestIndex = index;
-        }
-      });
-      
-      // 滚动到当前时间
-      const itemWidth = 80; // 每个预报项的宽度
-      const scrollPosition = Math.max(0, closestIndex * itemWidth - 100);
-      scrollContainerRef.current.scrollLeft = scrollPosition;
+    if (scrollRef.current && hourlyForecast.length > 0) {
+      const currentHour = new Date().getHours();
+      const currentIndex = hourlyForecast.findIndex(item => item.time === currentHour);
+      if (currentIndex > 0) {
+        const itemWidth = 80; // 每个项目的宽度
+        scrollRef.current.scrollLeft = currentIndex * itemWidth;
+      }
     }
   }, [hourlyForecast]);
 
-  // 卡片样式根据时间变化
-  let cardStyle = 'bg-white/20 dark:bg-gray-800/40';
-  if (timeOfDay === TimeOfDay.NIGHT) {
-    cardStyle = 'bg-gray-800/40 text-white';
-  }
+  // 向左滚动
+  const scrollLeft = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: -240, behavior: 'smooth' });
+    }
+  };
+
+  // 向右滚动
+  const scrollRight = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: 240, behavior: 'smooth' });
+    }
+  };
+
+  // 格式化时间显示
+  const formatTime = (hour) => {
+    const now = new Date().getHours();
+    if (hour === now) {
+      return t('time.now');
+    }
+    return `${hour.toString().padStart(2, '0')}:00`;
+  };
+
+  // 获取降水概率颜色
+  const getPrecipitationColor = (precipitation) => {
+    if (precipitation >= 80) return 'text-blue-600';
+    if (precipitation >= 60) return 'text-blue-500';
+    if (precipitation >= 40) return 'text-blue-400';
+    if (precipitation >= 20) return 'text-blue-300';
+    return 'text-gray-400';
+  };
 
   // 加载状态
   if (isLoading) {
     return (
-      <div className={`${cardStyle} backdrop-blur-md rounded-xl p-4 shadow-lg animate-pulse mt-4`}>
-        <h3 className="text-lg font-semibold mb-3">未来短时内无降水</h3>
-        <div className="flex space-x-6 overflow-x-auto pb-2">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="flex flex-col items-center min-w-[60px]">
-              <div className="h-5 bg-gray-300 dark:bg-gray-700 rounded w-12 mb-2"></div>
-              <div className="h-8 w-8 bg-gray-300 dark:bg-gray-700 rounded-full mb-2"></div>
-              <div className="h-5 bg-gray-300 dark:bg-gray-700 rounded w-8"></div>
+      <div 
+        className="p-4"
+        style={getCardStyle(0.8)}
+      >
+        <h3 className="text-lg font-semibold mb-4" style={{ color: getTextColor() }}>
+          {t('forecast.hourly')}
+        </h3>
+        <div className="flex space-x-4 overflow-hidden">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex-shrink-0 w-16 animate-pulse">
+              <div className="h-4 bg-gray-300 rounded mb-2"></div>
+              <div className="h-8 bg-gray-300 rounded mb-2"></div>
+              <div className="h-6 bg-gray-300 rounded mb-2"></div>
+              <div className="h-4 bg-gray-300 rounded"></div>
             </div>
           ))}
         </div>
@@ -109,100 +81,176 @@ export default function HourlyForecast() {
   // 无数据状态
   if (!hourlyForecast || hourlyForecast.length === 0) {
     return (
-      <div className={`${cardStyle} backdrop-blur-md rounded-xl p-4 shadow-lg mt-4`}>
-        <p className="text-gray-600 dark:text-gray-300">暂无小时预报数据</p>
+      <div 
+        className="p-4 text-center"
+        style={getCardStyle(0.8)}
+      >
+        <h3 className="text-lg font-semibold mb-2" style={{ color: getTextColor() }}>
+          {t('forecast.hourly')}
+        </h3>
+        <p style={{ color: getTextColor('secondary') }}>
+          {t('no_data')}
+        </p>
       </div>
     );
   }
 
-  // 检查是否有降水
-  const hasRain = hourlyForecast.some(forecast => 
-    forecast.precipitation > 0 || 
-    [WeatherType.RAIN, WeatherType.HEAVY_RAIN, WeatherType.THUNDERSTORM].includes(forecast.weatherType)
-  );
-
   return (
-    <div className={`${cardStyle} backdrop-blur-md rounded-xl p-4 shadow-lg mt-4 slide-up`}>
-      <h3 className="text-lg font-semibold mb-3">
-        {hasRain ? '未来短时可能有降水' : '未来短时内无降水'}
-      </h3>
-      
+    <div 
+      className="p-4 relative"
+      style={getCardStyle(0.8)}
+    >
+      {/* 标题 */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold" style={{ color: getTextColor() }}>
+          {t('forecast.hourly')}
+        </h3>
+        <div className="flex space-x-2">
+          <button
+            onClick={scrollLeft}
+            className="p-1 rounded-full hover:bg-white hover:bg-opacity-20 transition-all duration-200"
+            style={{ color: getTextColor('secondary') }}
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <button
+            onClick={scrollRight}
+            className="p-1 rounded-full hover:bg-white hover:bg-opacity-20 transition-all duration-200"
+            style={{ color: getTextColor('secondary') }}
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
+      </div>
+
+      {/* 小时预报列表 */}
       <div 
-        ref={scrollContainerRef}
-        className="flex space-x-6 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent"
+        ref={scrollRef}
+        className="flex space-x-4 overflow-x-auto scrollbar-hide pb-2"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {hourlyForecast.map((forecast, index) => {
-          const forecastTime = new Date(forecast.time);
-          const hour = forecastTime.getHours();
-          const isNow = index === 0;
+        {hourlyForecast.map((item, index) => {
+          const isCurrentHour = item.time === new Date().getHours();
           
           return (
-            <div key={index} className="flex flex-col items-center min-w-[60px]">
-              <div className="text-sm mb-1">
-                {isNow ? '现在' : `${hour}:00`}
+            <div
+              key={index}
+              className={`flex-shrink-0 text-center p-3 rounded-lg transition-all duration-300 hover:scale-105 ${
+                isCurrentHour ? 'bg-white bg-opacity-20 ring-2 ring-white ring-opacity-30' : 'bg-white bg-opacity-10'
+              }`}
+              style={{ minWidth: '80px' }}
+            >
+              {/* 时间 */}
+              <div 
+                className={`text-sm mb-2 ${isCurrentHour ? 'font-semibold' : ''}`}
+                style={{ color: isCurrentHour ? getTextColor() : getTextColor('secondary') }}
+              >
+                {formatTime(item.time)}
               </div>
-              
-              {getWeatherIcon(forecast.weatherType)}
-              
-              <div className="text-lg font-semibold mt-1">
-                {forecast.temperature}°
+
+              {/* 天气图标 */}
+              <div className="text-2xl mb-2 animate-pulse">
+                {WeatherIcons[item.weatherType]}
               </div>
-              
-              {forecast.precipitation > 0 && (
-                <div className="text-xs text-blue-500 dark:text-blue-300 mt-1">
-                  {Math.round(forecast.precipitation * 10) / 10}mm
+
+              {/* 温度 */}
+              <div 
+                className={`text-lg font-semibold mb-2 ${isCurrentHour ? 'text-xl' : ''}`}
+                style={{ color: getTextColor() }}
+              >
+                {item.temperature}°
+              </div>
+
+              {/* 降水概率 */}
+              {item.precipitation > 0 && (
+                <div className="flex items-center justify-center mb-1">
+                  <Droplets 
+                    size={12} 
+                    className={getPrecipitationColor(item.precipitation)}
+                  />
+                  <span 
+                    className={`text-xs ml-1 ${getPrecipitationColor(item.precipitation)}`}
+                  >
+                    {item.precipitation}%
+                  </span>
+                </div>
+              )}
+
+              {/* 风速 */}
+              <div 
+                className="text-xs"
+                style={{ color: getTextColor('muted') }}
+              >
+                {item.windSpeed}级
+              </div>
+
+              {/* 当前时间指示器 */}
+              {isCurrentHour && (
+                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2">
+                  <div className="w-2 h-2 bg-yellow-400 rounded-full animate-ping"></div>
                 </div>
               )}
             </div>
           );
         })}
       </div>
-      
-      {/* 温度曲线图 - 简化版 */}
-      <div className="mt-4 h-16 relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full h-[2px] bg-gray-300 dark:bg-gray-600"></div>
+
+      {/* 降水预报提示 */}
+      <div className="mt-4 p-3 rounded-lg bg-white bg-opacity-10">
+        <div className="flex items-center">
+          <Droplets className="mr-2 text-blue-400" size={16} />
+          <span className="text-sm" style={{ color: getTextColor('secondary') }}>
+            {t('forecast.no_rain')}
+          </span>
         </div>
-        
-        <div className="relative h-full flex items-center">
-          {hourlyForecast.map((forecast, index) => {
-            // 计算温度点的相对位置
-            const min = Math.min(...hourlyForecast.map(f => f.temperature)) - 2;
-            const max = Math.max(...hourlyForecast.map(f => f.temperature)) + 2;
-            const range = max - min;
-            const position = range > 0 ? ((forecast.temperature - min) / range) : 0.5;
-            const top = `${(1 - position) * 100}%`;
-            
-            return (
-              <div 
-                key={index}
-                className="absolute h-2 w-2 bg-blue-500 rounded-full"
-                style={{ 
-                  left: `${(index / (hourlyForecast.length - 1)) * 100}%`, 
-                  top 
-                }}
-              ></div>
-            );
-          })}
-          
-          {/* 连接线 */}
-          <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+        <div className="text-xs mt-1" style={{ color: getTextColor('muted') }}>
+          {t('pull_to_refresh')}
+        </div>
+      </div>
+
+      {/* 温度趋势线 */}
+      <div className="mt-4 relative h-16">
+        <svg 
+          className="w-full h-full" 
+          viewBox="0 0 800 60"
+          style={{ overflow: 'visible' }}
+        >
+          {/* 绘制温度趋势线 */}
+          {hourlyForecast.length > 1 && (
             <polyline
-              points={hourlyForecast.map((forecast, index) => {
-                const min = Math.min(...hourlyForecast.map(f => f.temperature)) - 2;
-                const max = Math.max(...hourlyForecast.map(f => f.temperature)) + 2;
-                const range = max - min;
-                const position = range > 0 ? ((forecast.temperature - min) / range) : 0.5;
-                const x = `${(index / (hourlyForecast.length - 1)) * 100}%`;
-                const y = `${(1 - position) * 100}%`;
+              fill="none"
+              stroke="rgba(255, 255, 255, 0.6)"
+              strokeWidth="2"
+              points={hourlyForecast.slice(0, 12).map((item, index) => {
+                const x = (index / 11) * 800;
+                const minTemp = Math.min(...hourlyForecast.slice(0, 12).map(h => h.temperature));
+                const maxTemp = Math.max(...hourlyForecast.slice(0, 12).map(h => h.temperature));
+                const y = 50 - ((item.temperature - minTemp) / (maxTemp - minTemp)) * 40;
                 return `${x},${y}`;
               }).join(' ')}
-              fill="none"
-              stroke="rgb(59, 130, 246)"
-              strokeWidth="2"
+              className="animate-pulse"
             />
-          </svg>
-        </div>
+          )}
+          
+          {/* 绘制温度点 */}
+          {hourlyForecast.slice(0, 12).map((item, index) => {
+            const x = (index / 11) * 800;
+            const minTemp = Math.min(...hourlyForecast.slice(0, 12).map(h => h.temperature));
+            const maxTemp = Math.max(...hourlyForecast.slice(0, 12).map(h => h.temperature));
+            const y = 50 - ((item.temperature - minTemp) / (maxTemp - minTemp)) * 40;
+            
+            return (
+              <circle
+                key={index}
+                cx={x}
+                cy={y}
+                r="3"
+                fill="rgba(255, 255, 255, 0.8)"
+                className="animate-pulse"
+              />
+            );
+          })}
+        </svg>
       </div>
     </div>
   );

@@ -1,7 +1,4 @@
-import { createContext, useContext, useEffect, useReducer } from 'react';
-
-// 创建天气上下文
-const WeatherContext = createContext();
+import { createContext, useContext, useReducer, useEffect } from 'react';
 
 // 天气类型枚举
 export const WeatherType = {
@@ -13,214 +10,253 @@ export const WeatherType = {
   THUNDERSTORM: 'thunderstorm',
   SNOW: 'snow',
   FOG: 'fog',
-  DUST: 'dust',
+  HAZE: 'haze'
+};
+
+// 天气图标映射
+export const WeatherIcons = {
+  [WeatherType.SUNNY]: '☀️',
+  [WeatherType.CLOUDY]: '⛅',
+  [WeatherType.OVERCAST]: '☁️',
+  [WeatherType.RAIN]: '🌧️',
+  [WeatherType.HEAVY_RAIN]: '⛈️',
+  [WeatherType.THUNDERSTORM]: '⚡',
+  [WeatherType.SNOW]: '❄️',
+  [WeatherType.FOG]: '🌫️',
+  [WeatherType.HAZE]: '😶‍🌫️'
 };
 
 // 初始状态
 const initialState = {
-  currentWeather: {
-    location: null,
-    temperature: null,
-    weatherType: null,
-    humidity: null,
-    windSpeed: null,
-    windDirection: null,
-    pressure: null,
-    uvIndex: null,
-    feelsLike: null,
-    visibility: null,
-    airQuality: null,
-    updatedAt: null,
-  },
+  currentWeather: null,
   hourlyForecast: [],
   dailyForecast: [],
-  weatherAlerts: [],
   isLoading: false,
   error: null,
-  lastUpdated: null,
+  selectedCity: '北京市',
+  cities: ['北京市', '上海市', '广州市', '深圳市', '杭州市', '南京市']
 };
 
-// 动作类型
-const ActionType = {
-  FETCH_WEATHER_START: 'FETCH_WEATHER_START',
-  FETCH_WEATHER_SUCCESS: 'FETCH_WEATHER_SUCCESS',
-  FETCH_WEATHER_FAILURE: 'FETCH_WEATHER_FAILURE',
-  SET_LOCATION: 'SET_LOCATION',
+// Action 类型
+const ActionTypes = {
+  SET_LOADING: 'SET_LOADING',
+  SET_CURRENT_WEATHER: 'SET_CURRENT_WEATHER',
+  SET_HOURLY_FORECAST: 'SET_HOURLY_FORECAST',
+  SET_DAILY_FORECAST: 'SET_DAILY_FORECAST',
+  SET_ERROR: 'SET_ERROR',
+  SET_SELECTED_CITY: 'SET_SELECTED_CITY',
+  ADD_CITY: 'ADD_CITY',
+  REMOVE_CITY: 'REMOVE_CITY'
 };
 
-// Reducer 函数
+// Reducer
 function weatherReducer(state, action) {
   switch (action.type) {
-    case ActionType.FETCH_WEATHER_START:
-      return {
-        ...state,
-        isLoading: true,
-        error: null,
+    case ActionTypes.SET_LOADING:
+      return { ...state, isLoading: action.payload };
+    case ActionTypes.SET_CURRENT_WEATHER:
+      return { ...state, currentWeather: action.payload, isLoading: false };
+    case ActionTypes.SET_HOURLY_FORECAST:
+      return { ...state, hourlyForecast: action.payload };
+    case ActionTypes.SET_DAILY_FORECAST:
+      return { ...state, dailyForecast: action.payload };
+    case ActionTypes.SET_ERROR:
+      return { ...state, error: action.payload, isLoading: false };
+    case ActionTypes.SET_SELECTED_CITY:
+      return { ...state, selectedCity: action.payload };
+    case ActionTypes.ADD_CITY:
+      return { 
+        ...state, 
+        cities: [...state.cities, action.payload].filter((city, index, arr) => arr.indexOf(city) === index)
       };
-    case ActionType.FETCH_WEATHER_SUCCESS:
-      return {
-        ...state,
-        currentWeather: action.payload.currentWeather,
-        hourlyForecast: action.payload.hourlyForecast,
-        dailyForecast: action.payload.dailyForecast,
-        weatherAlerts: action.payload.weatherAlerts,
-        isLoading: false,
-        error: null,
-        lastUpdated: new Date(),
-      };
-    case ActionType.FETCH_WEATHER_FAILURE:
-      return {
-        ...state,
-        isLoading: false,
-        error: action.payload,
-      };
-    case ActionType.SET_LOCATION:
-      return {
-        ...state,
-        currentWeather: {
-          ...state.currentWeather,
-          location: action.payload,
-        },
+    case ActionTypes.REMOVE_CITY:
+      return { 
+        ...state, 
+        cities: state.cities.filter(city => city !== action.payload)
       };
     default:
       return state;
   }
 }
 
-// 天气提供者组件
+// 创建上下文
+const WeatherContext = createContext();
+
+// 模拟天气数据生成
+function generateMockWeatherData(city) {
+  const weatherTypes = Object.values(WeatherType);
+  const randomWeatherType = weatherTypes[Math.floor(Math.random() * weatherTypes.length)];
+  
+  const baseTemp = Math.floor(Math.random() * 30) + 5; // 5-35度
+  
+  return {
+    location: {
+      name: city,
+      country: '中国',
+      region: city.includes('市') ? city.replace('市', '省') : '直辖市'
+    },
+    temperature: baseTemp,
+    feelsLike: baseTemp + Math.floor(Math.random() * 6) - 3,
+    weatherType: randomWeatherType,
+    description: getWeatherDescription(randomWeatherType),
+    humidity: Math.floor(Math.random() * 60) + 30, // 30-90%
+    windSpeed: Math.floor(Math.random() * 8) + 1, // 1-8级
+    windDirection: Math.floor(Math.random() * 360), // 0-359度
+    pressure: Math.floor(Math.random() * 100) + 1000, // 1000-1100 hPa
+    visibility: Math.floor(Math.random() * 15) + 5, // 5-20 km
+    uvIndex: Math.floor(Math.random() * 11), // 0-10
+    airQuality: {
+      aqi: Math.floor(Math.random() * 200) + 50, // 50-250
+      level: getAQILevel(Math.floor(Math.random() * 200) + 50),
+      pm25: Math.floor(Math.random() * 150) + 10,
+      pm10: Math.floor(Math.random() * 200) + 20
+    },
+    maxTemp: baseTemp + Math.floor(Math.random() * 8) + 2,
+    minTemp: baseTemp - Math.floor(Math.random() * 8) - 2,
+    sunrise: '06:30',
+    sunset: '18:45',
+    updateTime: new Date().toLocaleString('zh-CN')
+  };
+}
+
+// 生成小时预报数据
+function generateHourlyForecast() {
+  const forecast = [];
+  const now = new Date();
+  
+  for (let i = 0; i < 24; i++) {
+    const time = new Date(now.getTime() + i * 60 * 60 * 1000);
+    const weatherTypes = Object.values(WeatherType);
+    const randomWeatherType = weatherTypes[Math.floor(Math.random() * weatherTypes.length)];
+    
+    forecast.push({
+      time: time.getHours(),
+      temperature: Math.floor(Math.random() * 20) + 10,
+      weatherType: randomWeatherType,
+      precipitation: Math.floor(Math.random() * 100), // 降水概率
+      windSpeed: Math.floor(Math.random() * 6) + 1
+    });
+  }
+  
+  return forecast;
+}
+
+// 生成每日预报数据
+function generateDailyForecast() {
+  const forecast = [];
+  const today = new Date();
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  
+  for (let i = 0; i < 14; i++) {
+    const date = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
+    const weatherTypes = Object.values(WeatherType);
+    const dayWeatherType = weatherTypes[Math.floor(Math.random() * weatherTypes.length)];
+    const nightWeatherType = weatherTypes[Math.floor(Math.random() * weatherTypes.length)];
+    
+    const maxTemp = Math.floor(Math.random() * 20) + 15;
+    const minTemp = maxTemp - Math.floor(Math.random() * 10) - 5;
+    
+    forecast.push({
+      date: date.toLocaleDateString('zh-CN'),
+      weekday: i === 0 ? '今天' : i === 1 ? '明天' : weekdays[date.getDay()],
+      dayWeatherType,
+      nightWeatherType,
+      maxTemp,
+      minTemp,
+      precipitation: Math.floor(Math.random() * 100),
+      windSpeed: Math.floor(Math.random() * 6) + 1,
+      airQuality: getAQILevel(Math.floor(Math.random() * 200) + 50)
+    });
+  }
+  
+  return forecast;
+}
+
+// 获取天气描述
+function getWeatherDescription(weatherType) {
+  const descriptions = {
+    [WeatherType.SUNNY]: '晴朗',
+    [WeatherType.CLOUDY]: '多云',
+    [WeatherType.OVERCAST]: '阴天',
+    [WeatherType.RAIN]: '小雨',
+    [WeatherType.HEAVY_RAIN]: '大雨',
+    [WeatherType.THUNDERSTORM]: '雷阵雨',
+    [WeatherType.SNOW]: '雪',
+    [WeatherType.FOG]: '雾',
+    [WeatherType.HAZE]: '霾'
+  };
+  return descriptions[weatherType] || '未知';
+}
+
+// 获取空气质量等级
+function getAQILevel(aqi) {
+  if (aqi <= 50) return '优';
+  if (aqi <= 100) return '良';
+  if (aqi <= 150) return '轻度污染';
+  if (aqi <= 200) return '中度污染';
+  if (aqi <= 300) return '重度污染';
+  return '严重污染';
+}
+
+// Provider 组件
 export function WeatherProvider({ children }) {
   const [state, dispatch] = useReducer(weatherReducer, initialState);
 
   // 获取天气数据
-  const fetchWeatherData = async (location) => {
-    dispatch({ type: ActionType.FETCH_WEATHER_START });
+  const fetchWeatherData = async (city = state.selectedCity) => {
+    dispatch({ type: ActionTypes.SET_LOADING, payload: true });
     
     try {
-      // 这里将来会实现实际的API调用
-      // 目前使用模拟数据
-      const mockData = generateMockWeatherData(location);
+      // 模拟API调用延迟
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      dispatch({
-        type: ActionType.FETCH_WEATHER_SUCCESS,
-        payload: mockData,
-      });
+      // 生成模拟数据
+      const currentWeather = generateMockWeatherData(city);
+      const hourlyForecast = generateHourlyForecast();
+      const dailyForecast = generateDailyForecast();
+      
+      dispatch({ type: ActionTypes.SET_CURRENT_WEATHER, payload: currentWeather });
+      dispatch({ type: ActionTypes.SET_HOURLY_FORECAST, payload: hourlyForecast });
+      dispatch({ type: ActionTypes.SET_DAILY_FORECAST, payload: dailyForecast });
+      
     } catch (error) {
-      dispatch({
-        type: ActionType.FETCH_WEATHER_FAILURE,
-        payload: error.message,
-      });
+      dispatch({ type: ActionTypes.SET_ERROR, payload: error.message });
     }
   };
 
-  // 设置位置
-  const setLocation = (location) => {
-    dispatch({
-      type: ActionType.SET_LOCATION,
-      payload: location,
-    });
-    
-    // 获取新位置的天气数据
-    fetchWeatherData(location);
+  // 切换城市
+  const selectCity = (city) => {
+    dispatch({ type: ActionTypes.SET_SELECTED_CITY, payload: city });
+    fetchWeatherData(city);
   };
 
-  // 刷新天气数据
-  const refreshWeather = () => {
-    if (state.currentWeather.location) {
-      fetchWeatherData(state.currentWeather.location);
-    }
+  // 添加城市
+  const addCity = (city) => {
+    dispatch({ type: ActionTypes.ADD_CITY, payload: city });
   };
 
-  // 生成模拟天气数据（开发阶段使用）
-  const generateMockWeatherData = (location) => {
-    const now = new Date();
-    const weatherTypes = Object.values(WeatherType);
-    const randomWeatherType = weatherTypes[Math.floor(Math.random() * weatherTypes.length)];
-    
-    // 生成当前天气
-    const currentWeather = {
-      location: location || {
-        name: '虎丘区 娄门路',
-        latitude: 31.3,
-        longitude: 120.6,
-      },
-      temperature: Math.floor(Math.random() * 15) + 15, // 15-30°C
-      weatherType: randomWeatherType,
-      humidity: Math.floor(Math.random() * 50) + 30, // 30-80%
-      windSpeed: Math.floor(Math.random() * 10) + 1, // 1-11 m/s
-      windDirection: Math.floor(Math.random() * 360), // 0-360 degrees
-      pressure: Math.floor(Math.random() * 50) + 980, // 980-1030 hPa
-      uvIndex: Math.floor(Math.random() * 11), // 0-10
-      feelsLike: Math.floor(Math.random() * 15) + 15, // 15-30°C
-      visibility: Math.floor(Math.random() * 5) + 5, // 5-10 km
-      airQuality: Math.floor(Math.random() * 150) + 50, // 50-200
-      updatedAt: now,
-    };
-    
-    // 生成小时预报
-    const hourlyForecast = Array.from({ length: 24 }, (_, i) => {
-      const forecastTime = new Date(now);
-      forecastTime.setHours(now.getHours() + i);
-      
-      return {
-        time: forecastTime,
-        temperature: currentWeather.temperature + Math.floor(Math.random() * 5) - 2, // -2 to +2°C
-        weatherType: weatherTypes[Math.floor(Math.random() * weatherTypes.length)],
-        precipitation: Math.random() < 0.3 ? Math.random() * 5 : 0, // 30% chance of rain
-        windSpeed: Math.floor(Math.random() * 10) + 1,
-      };
-    });
-    
-    // 生成每日预报
-    const dailyForecast = Array.from({ length: 14 }, (_, i) => {
-      const forecastDate = new Date(now);
-      forecastDate.setDate(now.getDate() + i);
-      
-      return {
-        date: forecastDate,
-        maxTemperature: currentWeather.temperature + Math.floor(Math.random() * 5),
-        minTemperature: currentWeather.temperature - Math.floor(Math.random() * 8),
-        weatherType: {
-          day: weatherTypes[Math.floor(Math.random() * weatherTypes.length)],
-          night: weatherTypes[Math.floor(Math.random() * weatherTypes.length)],
-        },
-        precipitation: Math.random() < 0.3 ? Math.random() * 10 : 0,
-        humidity: Math.floor(Math.random() * 50) + 30,
-        sunrise: new Date(forecastDate).setHours(6, Math.floor(Math.random() * 30), 0),
-        sunset: new Date(forecastDate).setHours(18, Math.floor(Math.random() * 30), 0),
-        moonPhase: Math.random(),
-        airQuality: Math.floor(Math.random() * 150) + 50,
-      };
-    });
-    
-    // 生成天气预警
-    const weatherAlerts = [];
-    if (Math.random() < 0.3) { // 30% chance of having an alert
-      weatherAlerts.push({
-        id: Math.random().toString(36).substring(2, 11),
-        type: ['高温', '暴雨', '台风', '大雾', '雷电'][Math.floor(Math.random() * 5)],
-        severity: ['黄色', '橙色', '红色'][Math.floor(Math.random() * 3)],
-        title: '高温黄色预警：预计6-8日徐州、宿迁、淮安北部和准安北部将继续发布高温',
-        description: '江苏省气象台2025年06月05日16时08分继续发布高温黄色预警：预计6-8日徐州、宿迁、淮安北部和准安北部将继续出现35℃以上的高温天气。',
-        startTime: now,
-        endTime: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000), // 3 days later
-        issuedBy: '江苏省气象台',
-        issuedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000), // 2 hours ago
-      });
-    }
-    
-    return {
-      currentWeather,
-      hourlyForecast,
-      dailyForecast,
-      weatherAlerts,
-    };
+  // 删除城市
+  const removeCity = (city) => {
+    dispatch({ type: ActionTypes.REMOVE_CITY, payload: city });
   };
 
-  // 提供的上下文值
+  // 刷新数据
+  const refreshWeatherData = () => {
+    fetchWeatherData(state.selectedCity);
+  };
+
+  // 初始化数据
+  useEffect(() => {
+    fetchWeatherData();
+  }, []);
+
   const value = {
     ...state,
-    setLocation,
-    refreshWeather,
+    fetchWeatherData,
+    selectCity,
+    addCity,
+    removeCity,
+    refreshWeatherData
   };
 
   return (
@@ -230,12 +266,14 @@ export function WeatherProvider({ children }) {
   );
 }
 
-// 自定义钩子，用于访问天气上下文
+// Hook
 export function useWeather() {
   const context = useContext(WeatherContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useWeather must be used within a WeatherProvider');
   }
   return context;
 }
+
+export { WeatherType as default };
 

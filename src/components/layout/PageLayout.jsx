@@ -1,147 +1,290 @@
 import { useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLang } from '@/contexts/LangContext';
-import { useWeather } from '@/contexts/WeatherContext';
-import { Button } from '@/components/ui/button';
 import { 
+  Cloud, 
+  Calendar, 
+  MapPin, 
   Settings, 
-  Menu, 
-  Sun, 
-  Moon, 
-  Globe, 
-  RefreshCw,
-  MapPin,
-  Plus
+  Menu,
+  X,
+  Globe,
+  Palette
 } from 'lucide-react';
 
-// 页面布局组件
-export default function PageLayout({ children, title, showBackButton = false, onBack }) {
-  const { darkMode, toggleDarkMode, timeOfDay } = useTheme();
-  const { currentLang, supportedLanguages, changeLang } = useLang();
-  const { refreshWeather, isLoading } = useWeather();
-  
-  const [showLangMenu, setShowLangMenu] = useState(false);
-  
-  // 处理刷新按钮点击
-  const handleRefresh = () => {
-    refreshWeather();
-  };
-  
-  // 处理语言切换
-  const handleLanguageChange = (lang) => {
-    changeLang(lang);
-    setShowLangMenu(false);
+// 页面枚举
+export const Pages = {
+  WEATHER: 'weather',
+  FORECAST: 'forecast',
+  CITIES: 'cities',
+  SETTINGS: 'settings'
+};
+
+export default function PageLayout({ children, currentPage, onPageChange }) {
+  const { getCardStyle, getTextColor, timeOfDay, toggleDarkMode, isDarkMode } = useTheme();
+  const { t, changeLanguage, currentLanguage, supportedLanguages } = useLang();
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  // 导航项配置
+  const navItems = [
+    {
+      id: Pages.WEATHER,
+      icon: Cloud,
+      label: t('nav.weather'),
+      color: 'text-blue-400'
+    },
+    {
+      id: Pages.FORECAST,
+      icon: Calendar,
+      label: t('nav.forecast'),
+      color: 'text-green-400'
+    },
+    {
+      id: Pages.CITIES,
+      icon: MapPin,
+      label: t('nav.cities'),
+      color: 'text-orange-400'
+    },
+    {
+      id: Pages.SETTINGS,
+      icon: Settings,
+      label: t('nav.more'),
+      color: 'text-purple-400'
+    }
+  ];
+
+  // 切换语言
+  const handleLanguageChange = (language) => {
+    changeLanguage(language);
+    setShowLanguageMenu(false);
   };
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* 页面头部 */}
-      <header className="flex justify-between items-center py-4">
-        <div className="flex items-center">
-          {showBackButton ? (
-            <Button variant="ghost" size="icon" onClick={onBack} className="mr-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-left">
-                <path d="m15 18-6-6 6-6"/>
-              </svg>
-            </Button>
-          ) : (
-            <Button variant="ghost" size="icon" className="mr-2">
-              <Menu className="h-6 w-6" />
-            </Button>
-          )}
-          <h1 className="text-xl font-semibold">{title}</h1>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          {/* 刷新按钮 */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className={isLoading ? 'animate-spin' : ''}
-          >
-            <RefreshCw className="h-5 w-5" />
-          </Button>
-          
-          {/* 深色模式切换 */}
-          <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
-            {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </Button>
-          
-          {/* 语言切换 */}
-          <div className="relative">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setShowLangMenu(!showLangMenu)}
-            >
-              <Globe className="h-5 w-5" />
-            </Button>
-            
-            {showLangMenu && (
-              <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50">
-                <div className="py-1" role="menu" aria-orientation="vertical">
-                  {Object.entries(supportedLanguages).map(([code, { nativeName }]) => (
+    <div className="min-h-screen flex flex-col">
+      {/* 顶部导航栏 */}
+      <header 
+        className="sticky top-0 z-50 p-4"
+        style={getCardStyle(0.95)}
+      >
+        <div className="flex items-center justify-between">
+          {/* 左侧：应用标题 */}
+          <div className="flex items-center space-x-3">
+            <div className="p-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500">
+              <Cloud className="text-white" size={24} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold" style={{ color: getTextColor() }}>
+                {t('app.title')}
+              </h1>
+              <p className="text-xs" style={{ color: getTextColor('secondary') }}>
+                {t('app.subtitle')}
+              </p>
+            </div>
+          </div>
+
+          {/* 右侧：工具按钮 */}
+          <div className="flex items-center space-x-2">
+            {/* 语言切换按钮 */}
+            <div className="relative">
+              <button
+                onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+                className="p-2 rounded-full hover:bg-white hover:bg-opacity-20 transition-all duration-200"
+                style={{ color: getTextColor('secondary') }}
+              >
+                <Globe size={20} />
+              </button>
+
+              {/* 语言菜单 */}
+              {showLanguageMenu && (
+                <div 
+                  className="absolute right-0 top-12 w-48 py-2 rounded-lg shadow-lg z-50"
+                  style={getCardStyle(0.95)}
+                >
+                  {Object.entries(supportedLanguages).map(([code, name]) => (
                     <button
                       key={code}
-                      className={`block px-4 py-2 text-sm w-full text-left ${
-                        currentLang === code 
-                          ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' 
-                          : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
                       onClick={() => handleLanguageChange(code)}
+                      className={`w-full px-4 py-2 text-left hover:bg-white hover:bg-opacity-20 transition-all duration-200 ${
+                        currentLanguage === code ? 'bg-white bg-opacity-10' : ''
+                      }`}
+                      style={{ color: getTextColor() }}
                     >
-                      {nativeName}
+                      {name}
+                      {currentLanguage === code && (
+                        <span className="float-right text-blue-400">✓</span>
+                      )}
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* 主题切换按钮 */}
+            <button
+              onClick={toggleDarkMode}
+              className="p-2 rounded-full hover:bg-white hover:bg-opacity-20 transition-all duration-200"
+              style={{ color: getTextColor('secondary') }}
+            >
+              <Palette size={20} />
+            </button>
+
+            {/* 移动端菜单按钮 */}
+            <button
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className="md:hidden p-2 rounded-full hover:bg-white hover:bg-opacity-20 transition-all duration-200"
+              style={{ color: getTextColor('secondary') }}
+            >
+              {showMobileMenu ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
-          
-          {/* 设置按钮 */}
-          <Button variant="ghost" size="icon">
-            <Settings className="h-5 w-5" />
-          </Button>
         </div>
+
+        {/* 移动端导航菜单 */}
+        {showMobileMenu && (
+          <div className="md:hidden mt-4 pt-4 border-t border-white border-opacity-20">
+            <div className="grid grid-cols-2 gap-2">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentPage === item.id;
+                
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      onPageChange(item.id);
+                      setShowMobileMenu(false);
+                    }}
+                    className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 ${
+                      isActive 
+                        ? 'bg-white bg-opacity-20 scale-105' 
+                        : 'hover:bg-white hover:bg-opacity-10'
+                    }`}
+                  >
+                    <Icon 
+                      size={20} 
+                      className={isActive ? item.color : ''} 
+                      style={{ color: isActive ? undefined : getTextColor('secondary') }}
+                    />
+                    <span 
+                      className={`text-sm ${isActive ? 'font-semibold' : ''}`}
+                      style={{ color: isActive ? getTextColor() : getTextColor('secondary') }}
+                    >
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </header>
-      
-      {/* 主要内容 */}
-      <main className="flex-1 overflow-auto">
+
+      {/* 主要内容区域 */}
+      <main className="flex-1 p-4 pb-20 md:pb-4">
         {children}
       </main>
-      
-      {/* 底部导航 */}
-      <footer className="py-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex justify-around items-center">
-          <Button variant="ghost" className="flex flex-col items-center">
-            <MapPin className="h-6 w-6 mb-1" />
-            <span className="text-xs">城市</span>
-          </Button>
-          
-          <Button variant="ghost" className="flex flex-col items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-cloud mb-1">
-              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
-            </svg>
-            <span className="text-xs">天气</span>
-          </Button>
-          
-          <Button variant="ghost" className="flex flex-col items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-bar-chart-2 mb-1">
-              <line x1="18" x2="18" y1="20" y2="10"/>
-              <line x1="12" x2="12" y1="20" y2="4"/>
-              <line x1="6" x2="6" y1="20" y2="14"/>
-            </svg>
-            <span className="text-xs">预报</span>
-          </Button>
-          
-          <Button variant="ghost" className="flex flex-col items-center">
-            <Plus className="h-6 w-6 mb-1" />
-            <span className="text-xs">更多</span>
-          </Button>
+
+      {/* 底部导航栏（桌面端） */}
+      <nav 
+        className="hidden md:block fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
+        style={getCardStyle(0.95)}
+      >
+        <div className="flex items-center space-x-1 p-2">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentPage === item.id;
+            
+            return (
+              <button
+                key={item.id}
+                onClick={() => onPageChange(item.id)}
+                className={`flex flex-col items-center space-y-1 p-3 rounded-lg transition-all duration-300 ${
+                  isActive 
+                    ? 'bg-white bg-opacity-20 scale-110 shadow-lg' 
+                    : 'hover:bg-white hover:bg-opacity-10 hover:scale-105'
+                }`}
+                style={{ minWidth: '80px' }}
+              >
+                <Icon 
+                  size={24} 
+                  className={`transition-all duration-300 ${isActive ? `${item.color} animate-pulse` : ''}`}
+                  style={{ color: isActive ? undefined : getTextColor('secondary') }}
+                />
+                <span 
+                  className={`text-xs transition-all duration-300 ${isActive ? 'font-semibold' : ''}`}
+                  style={{ color: isActive ? getTextColor() : getTextColor('secondary') }}
+                >
+                  {item.label}
+                </span>
+                
+                {/* 活动指示器 */}
+                {isActive && (
+                  <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2">
+                    <div className="w-2 h-2 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-pulse"></div>
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
-      </footer>
+      </nav>
+
+      {/* 移动端底部导航栏 */}
+      <nav 
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50"
+        style={getCardStyle(0.95)}
+      >
+        <div className="flex items-center justify-around p-2">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentPage === item.id;
+            
+            return (
+              <button
+                key={item.id}
+                onClick={() => onPageChange(item.id)}
+                className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-300 ${
+                  isActive 
+                    ? 'bg-white bg-opacity-20 scale-110' 
+                    : 'hover:bg-white hover:bg-opacity-10'
+                }`}
+                style={{ minWidth: '60px' }}
+              >
+                <Icon 
+                  size={20} 
+                  className={`transition-all duration-300 ${isActive ? `${item.color} animate-pulse` : ''}`}
+                  style={{ color: isActive ? undefined : getTextColor('secondary') }}
+                />
+                <span 
+                  className={`text-xs transition-all duration-300 ${isActive ? 'font-semibold' : ''}`}
+                  style={{ color: isActive ? getTextColor() : getTextColor('secondary') }}
+                >
+                  {item.label}
+                </span>
+                
+                {/* 活动指示器 */}
+                {isActive && (
+                  <div className="absolute -top-1 left-1/2 transform -translate-x-1/2">
+                    <div className="w-1 h-1 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-ping"></div>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* 点击外部关闭菜单 */}
+      {(showLanguageMenu || showMobileMenu) && (
+        <div 
+          className="fixed inset-0 z-40"
+          onClick={() => {
+            setShowLanguageMenu(false);
+            setShowMobileMenu(false);
+          }}
+        />
+      )}
     </div>
   );
 }

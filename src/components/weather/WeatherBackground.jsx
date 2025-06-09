@@ -1,342 +1,350 @@
-import { useRef, useEffect, useState } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { useEffect, useRef, useState } from 'react';
 import { useWeather, WeatherType } from '@/contexts/WeatherContext';
 import { useTheme, TimeOfDay } from '@/contexts/ThemeContext';
-import * as THREE from 'three';
-import { EffectComposer, Bloom, DepthOfField } from '@react-three/postprocessing';
-import { Clouds, Cloud, Stars, Sky } from '@react-three/drei';
 
-// 雨滴粒子系统
-function RainParticles({ count = 1000, intensity = 1 }) {
-  const mesh = useRef();
-  const { viewport } = useThree();
-  
-  // 创建雨滴几何体
-  useEffect(() => {
-    if (!mesh.current) return;
-    
-    const positions = new Float32Array(count * 3);
-    const velocities = new Float32Array(count);
-    const sizes = new Float32Array(count);
-    
-    for (let i = 0; i < count; i++) {
-      // 随机位置
-      positions[i * 3] = (Math.random() - 0.5) * viewport.width * 2;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * viewport.height * 2 + viewport.height;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
-      
-      // 随机下落速度
-      velocities[i] = (Math.random() + 0.5) * 0.1 * intensity;
-      
-      // 随机大小
-      sizes[i] = Math.random() * 0.1 + 0.05;
+export default function WeatherBackground() {
+  const { currentWeather } = useWeather();
+  const { timeOfDay } = useTheme();
+  const canvasRef = useRef(null);
+  const animationRef = useRef(null);
+  const particlesRef = useRef([]);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  // 粒子类
+  class Particle {
+    constructor(canvas, type, timeOfDay) {
+      this.canvas = canvas;
+      this.type = type;
+      this.timeOfDay = timeOfDay;
+      this.reset();
     }
-    
-    mesh.current.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    mesh.current.geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
-    mesh.current.geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-  }, [count, viewport, intensity]);
-  
-  // 更新雨滴位置
-  useFrame(() => {
-    if (!mesh.current) return;
-    
-    const positions = mesh.current.geometry.attributes.position.array;
-    const velocities = mesh.current.geometry.attributes.velocity.array;
-    
-    for (let i = 0; i < count; i++) {
-      // 更新Y位置
-      positions[i * 3 + 1] -= velocities[i];
-      
-      // 如果雨滴落到底部，重置到顶部
-      if (positions[i * 3 + 1] < -viewport.height) {
-        positions[i * 3] = (Math.random() - 0.5) * viewport.width * 2;
-        positions[i * 3 + 1] = viewport.height;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+
+    reset() {
+      this.x = Math.random() * this.canvas.width;
+      this.y = -10;
+      this.size = this.getSize();
+      this.speed = this.getSpeed();
+      this.opacity = Math.random() * 0.8 + 0.2;
+      this.angle = Math.random() * Math.PI * 2;
+      this.drift = (Math.random() - 0.5) * 2;
+    }
+
+    getSize() {
+      switch (this.type) {
+        case 'rain':
+          return Math.random() * 2 + 1;
+        case 'snow':
+          return Math.random() * 4 + 2;
+        case 'stars':
+          return Math.random() * 2 + 0.5;
+        case 'clouds':
+          return Math.random() * 60 + 40;
+        default:
+          return 2;
       }
     }
-    
-    mesh.current.geometry.attributes.position.needsUpdate = true;
-  });
-  
-  return (
-    <points ref={mesh}>
-      <bufferGeometry />
-      <pointsMaterial 
-        color="#aaccff" 
-        size={0.1} 
-        transparent 
-        opacity={0.6}
-        blending={THREE.AdditiveBlending}
-        sizeAttenuation
-      />
-    </points>
-  );
-}
 
-// 雪花粒子系统
-function SnowParticles({ count = 1000 }) {
-  const mesh = useRef();
-  const { viewport } = useThree();
-  
-  // 创建雪花几何体
-  useEffect(() => {
-    if (!mesh.current) return;
-    
-    const positions = new Float32Array(count * 3);
-    const velocities = new Float32Array(count * 3);
-    const sizes = new Float32Array(count);
-    
-    for (let i = 0; i < count; i++) {
-      // 随机位置
-      positions[i * 3] = (Math.random() - 0.5) * viewport.width * 2;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * viewport.height * 2 + viewport.height;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
-      
-      // 随机速度（包括水平漂移）
-      velocities[i * 3] = (Math.random() - 0.5) * 0.02;
-      velocities[i * 3 + 1] = (Math.random() + 0.5) * 0.05;
-      velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.02;
-      
-      // 随机大小
-      sizes[i] = Math.random() * 0.2 + 0.1;
-    }
-    
-    mesh.current.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    mesh.current.geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
-    mesh.current.geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-  }, [count, viewport]);
-  
-  // 更新雪花位置
-  useFrame(() => {
-    if (!mesh.current) return;
-    
-    const positions = mesh.current.geometry.attributes.position.array;
-    const velocities = mesh.current.geometry.attributes.velocity.array;
-    
-    for (let i = 0; i < count; i++) {
-      // 更新位置
-      positions[i * 3] += velocities[i * 3];
-      positions[i * 3 + 1] -= velocities[i * 3 + 1];
-      positions[i * 3 + 2] += velocities[i * 3 + 2];
-      
-      // 如果雪花落到底部，重置到顶部
-      if (positions[i * 3 + 1] < -viewport.height) {
-        positions[i * 3] = (Math.random() - 0.5) * viewport.width * 2;
-        positions[i * 3 + 1] = viewport.height;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
-      }
-      
-      // 如果雪花飘出左右边界，重置到另一侧
-      if (positions[i * 3] < -viewport.width) {
-        positions[i * 3] = viewport.width;
-      } else if (positions[i * 3] > viewport.width) {
-        positions[i * 3] = -viewport.width;
+    getSpeed() {
+      switch (this.type) {
+        case 'rain':
+          return Math.random() * 8 + 12;
+        case 'snow':
+          return Math.random() * 2 + 1;
+        case 'stars':
+          return 0;
+        case 'clouds':
+          return Math.random() * 0.5 + 0.2;
+        default:
+          return 2;
       }
     }
-    
-    mesh.current.geometry.attributes.position.needsUpdate = true;
-  });
-  
-  return (
-    <points ref={mesh}>
-      <bufferGeometry />
-      <pointsMaterial 
-        color="#ffffff" 
-        size={0.2} 
-        transparent 
-        opacity={0.8}
-        blending={THREE.AdditiveBlending}
-        sizeAttenuation
-      />
-    </points>
-  );
-}
 
-// 闪电效果
-function Lightning() {
-  const mesh = useRef();
-  const { viewport } = useThree();
-  const [visible, setVisible] = useState(false);
-  const [position, setPosition] = useState([0, 0, 0]);
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // 随机决定是否显示闪电
-      if (Math.random() < 0.1) {
-        setVisible(true);
-        setPosition([
-          (Math.random() - 0.5) * viewport.width,
-          (Math.random() - 0.5) * viewport.height,
-          -5
-        ]);
+    update() {
+      switch (this.type) {
+        case 'rain':
+          this.y += this.speed;
+          this.x += this.drift;
+          break;
+        case 'snow':
+          this.y += this.speed;
+          this.x += Math.sin(this.angle) * 0.5;
+          this.angle += 0.02;
+          break;
+        case 'stars':
+          this.opacity = Math.sin(Date.now() * 0.001 + this.angle) * 0.3 + 0.7;
+          break;
+        case 'clouds':
+          this.x += this.speed;
+          if (this.x > this.canvas.width + this.size) {
+            this.x = -this.size;
+          }
+          break;
+      }
+
+      if (this.y > this.canvas.height + 10) {
+        this.reset();
+      }
+    }
+
+    draw(ctx) {
+      ctx.save();
+      ctx.globalAlpha = this.opacity;
+
+      switch (this.type) {
+        case 'rain':
+          this.drawRain(ctx);
+          break;
+        case 'snow':
+          this.drawSnow(ctx);
+          break;
+        case 'stars':
+          this.drawStar(ctx);
+          break;
+        case 'clouds':
+          this.drawCloud(ctx);
+          break;
+      }
+
+      ctx.restore();
+    }
+
+    drawRain(ctx) {
+      const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + 10);
+      gradient.addColorStop(0, 'rgba(174, 194, 224, 0.8)');
+      gradient.addColorStop(1, 'rgba(174, 194, 224, 0.2)');
+      
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = this.size;
+      ctx.lineCap = 'round';
+      
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      ctx.lineTo(this.x + this.drift, this.y + 10);
+      ctx.stroke();
+    }
+
+    drawSnow(ctx) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 雪花形状
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i < 6; i++) {
+        const angle = (i * Math.PI) / 3;
+        const x1 = this.x + Math.cos(angle) * this.size;
+        const y1 = this.y + Math.sin(angle) * this.size;
+        const x2 = this.x - Math.cos(angle) * this.size;
+        const y2 = this.y - Math.sin(angle) * this.size;
         
-        // 闪电持续时间
-        setTimeout(() => {
-          setVisible(false);
-        }, 100);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
       }
-    }, 2000);
-    
-    return () => clearInterval(interval);
-  }, [viewport]);
-  
-  if (!visible) return null;
-  
-  return (
-    <mesh ref={mesh} position={position}>
-      <planeGeometry args={[viewport.width / 4, viewport.height]} />
-      <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
-    </mesh>
-  );
-}
+    }
 
-// 天空背景
-function SkyBackground({ timeOfDay, weatherType }) {
-  const { scene } = useThree();
-  
-  useEffect(() => {
-    // 根据时间和天气设置背景色
-    let color;
+    drawStar(ctx) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 星光效果
+      ctx.strokeStyle = `rgba(255, 255, 255, ${this.opacity * 0.5})`;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(this.x - this.size * 2, this.y);
+      ctx.lineTo(this.x + this.size * 2, this.y);
+      ctx.moveTo(this.x, this.y - this.size * 2);
+      ctx.lineTo(this.x, this.y + this.size * 2);
+      ctx.stroke();
+    }
+
+    drawCloud(ctx) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity * 0.3})`;
+      
+      // 绘制云朵形状
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size * 0.6, 0, Math.PI * 2);
+      ctx.arc(this.x + this.size * 0.4, this.y, this.size * 0.8, 0, Math.PI * 2);
+      ctx.arc(this.x + this.size * 0.8, this.y, this.size * 0.6, 0, Math.PI * 2);
+      ctx.arc(this.x - this.size * 0.4, this.y, this.size * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 获取粒子类型
+  const getParticleType = () => {
+    if (!currentWeather) return 'stars';
+
+    switch (currentWeather.weatherType) {
+      case WeatherType.RAIN:
+      case WeatherType.HEAVY_RAIN:
+      case WeatherType.THUNDERSTORM:
+        return 'rain';
+      case WeatherType.SNOW:
+        return 'snow';
+      case WeatherType.CLOUDY:
+      case WeatherType.OVERCAST:
+        return 'clouds';
+      default:
+        return timeOfDay === TimeOfDay.NIGHT ? 'stars' : 'clouds';
+    }
+  };
+
+  // 获取粒子数量
+  const getParticleCount = () => {
+    if (!currentWeather) return 50;
+
+    switch (currentWeather.weatherType) {
+      case WeatherType.HEAVY_RAIN:
+      case WeatherType.THUNDERSTORM:
+        return 200;
+      case WeatherType.RAIN:
+        return 100;
+      case WeatherType.SNOW:
+        return 80;
+      case WeatherType.CLOUDY:
+      case WeatherType.OVERCAST:
+        return 20;
+      default:
+        return timeOfDay === TimeOfDay.NIGHT ? 100 : 30;
+    }
+  };
+
+  // 初始化粒子
+  const initParticles = (canvas) => {
+    const particleType = getParticleType();
+    const particleCount = getParticleCount();
+    
+    particlesRef.current = [];
+    for (let i = 0; i < particleCount; i++) {
+      particlesRef.current.push(new Particle(canvas, particleType, timeOfDay));
+    }
+  };
+
+  // 动画循环
+  const animate = (canvas, ctx) => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 绘制背景渐变
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
     
     switch (timeOfDay) {
       case TimeOfDay.MORNING:
-        color = new THREE.Color(weatherType === WeatherType.SUNNY ? '#87CEEB' : '#A9A9A9');
+        gradient.addColorStop(0, 'rgba(135, 206, 235, 0.1)');
+        gradient.addColorStop(1, 'rgba(255, 228, 181, 0.1)');
         break;
       case TimeOfDay.NOON:
-        color = new THREE.Color(weatherType === WeatherType.SUNNY ? '#1E90FF' : '#708090');
+        gradient.addColorStop(0, 'rgba(30, 144, 255, 0.1)');
+        gradient.addColorStop(1, 'rgba(135, 206, 250, 0.1)');
         break;
       case TimeOfDay.AFTERNOON:
-        color = new THREE.Color(weatherType === WeatherType.SUNNY ? '#FF7F50' : '#696969');
+        gradient.addColorStop(0, 'rgba(255, 127, 80, 0.1)');
+        gradient.addColorStop(1, 'rgba(255, 215, 0, 0.1)');
+        break;
+      case TimeOfDay.EVENING:
+        gradient.addColorStop(0, 'rgba(255, 99, 71, 0.1)');
+        gradient.addColorStop(1, 'rgba(255, 140, 0, 0.1)');
         break;
       case TimeOfDay.NIGHT:
-        color = new THREE.Color('#0A1929');
+        gradient.addColorStop(0, 'rgba(25, 25, 112, 0.2)');
+        gradient.addColorStop(1, 'rgba(72, 61, 139, 0.2)');
         break;
-      default:
-        color = new THREE.Color('#87CEEB');
     }
-    
-    scene.background = color;
-    scene.fog = new THREE.Fog(color, 1, 100);
-  }, [scene, timeOfDay, weatherType]);
-  
-  return null;
-}
 
-// 主场景
-function Scene() {
-  const { currentWeather } = useWeather();
-  const { timeOfDay } = useTheme();
-  
-  // 获取当前天气类型
-  const weatherType = currentWeather?.weatherType || WeatherType.SUNNY;
-  
-  // 是否显示星星（夜间）
-  const showStars = timeOfDay === TimeOfDay.NIGHT;
-  
-  // 是否显示云（多云、阴天、雨天等）
-  const showClouds = [
-    WeatherType.CLOUDY, 
-    WeatherType.OVERCAST, 
-    WeatherType.RAIN, 
-    WeatherType.HEAVY_RAIN,
-    WeatherType.THUNDERSTORM,
-    WeatherType.SNOW
-  ].includes(weatherType);
-  
-  // 云的密度和颜色
-  const cloudDensity = weatherType === WeatherType.OVERCAST ? 0.5 : 0.3;
-  const cloudColor = timeOfDay === TimeOfDay.NIGHT ? '#1a1a2e' : '#ffffff';
-  
-  // 是否显示雨
-  const showRain = [WeatherType.RAIN, WeatherType.HEAVY_RAIN, WeatherType.THUNDERSTORM].includes(weatherType);
-  
-  // 雨的强度
-  const rainIntensity = weatherType === WeatherType.HEAVY_RAIN ? 2 : 1;
-  
-  // 是否显示雪
-  const showSnow = weatherType === WeatherType.SNOW;
-  
-  // 是否显示闪电
-  const showLightning = weatherType === WeatherType.THUNDERSTORM;
-  
-  return (
-    <>
-      <SkyBackground timeOfDay={timeOfDay} weatherType={weatherType} />
-      
-      {/* 太阳/月亮和天空 */}
-      <Sky 
-        distance={450000} 
-        sunPosition={[0, timeOfDay === TimeOfDay.NIGHT ? -1 : 1, 0]} 
-        inclination={timeOfDay === TimeOfDay.NIGHT ? 0 : 0.5}
-        azimuth={timeOfDay === TimeOfDay.AFTERNOON ? 0.25 : 0.5}
-        mieCoefficient={0.005}
-        mieDirectionalG={0.8}
-        rayleigh={timeOfDay === TimeOfDay.NIGHT ? 0.5 : 1}
-        turbidity={timeOfDay === TimeOfDay.NIGHT ? 20 : 10}
-      />
-      
-      {/* 星星（夜间） */}
-      {showStars && <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />}
-      
-      {/* 云 */}
-      {showClouds && (
-        <Clouds material={THREE.MeshBasicMaterial}>
-          <Cloud 
-            opacity={0.8} 
-            speed={0.4} 
-            width={10} 
-            depth={1.5} 
-            segments={20} 
-            color={cloudColor}
-          />
-          <Cloud 
-            opacity={0.7} 
-            speed={0.2} 
-            width={8} 
-            depth={1} 
-            segments={15} 
-            color={cloudColor}
-            position={[4, 2, 0]}
-          />
-          <Cloud 
-            opacity={0.6} 
-            speed={0.3} 
-            width={12} 
-            depth={1.2} 
-            segments={18} 
-            color={cloudColor}
-            position={[-4, 3, 0]}
-          />
-        </Clouds>
-      )}
-      
-      {/* 雨 */}
-      {showRain && <RainParticles count={2000} intensity={rainIntensity} />}
-      
-      {/* 雪 */}
-      {showSnow && <SnowParticles count={1500} />}
-      
-      {/* 闪电 */}
-      {showLightning && <Lightning />}
-      
-      {/* 后期处理效果 */}
-      <EffectComposer>
-        <Bloom luminanceThreshold={0.2} luminanceSmoothing={0.9} height={300} />
-        <DepthOfField focusDistance={0} focalLength={0.02} bokehScale={2} height={480} />
-      </EffectComposer>
-    </>
-  );
-}
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-// 3D背景组件
-export default function WeatherBackground() {
+    // 更新和绘制粒子
+    particlesRef.current.forEach(particle => {
+      particle.update();
+      particle.draw(ctx);
+    });
+
+    // 雷电效果
+    if (currentWeather?.weatherType === WeatherType.THUNDERSTORM && Math.random() < 0.001) {
+      drawLightning(ctx, canvas);
+    }
+
+    animationRef.current = requestAnimationFrame(() => animate(canvas, ctx));
+  };
+
+  // 绘制闪电
+  const drawLightning = (ctx, canvas) => {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+    ctx.shadowBlur = 10;
+
+    const startX = Math.random() * canvas.width;
+    let currentX = startX;
+    let currentY = 0;
+
+    ctx.beginPath();
+    ctx.moveTo(currentX, currentY);
+
+    while (currentY < canvas.height) {
+      currentY += Math.random() * 50 + 20;
+      currentX += (Math.random() - 0.5) * 100;
+      ctx.lineTo(currentX, currentY);
+    }
+
+    ctx.stroke();
+    ctx.restore();
+
+    // 闪电消失
+    setTimeout(() => {
+      // 闪电效果会在下一帧自动消失
+    }, 100);
+  };
+
+  // 处理窗口大小变化
+  useEffect(() => {
+    const handleResize = () => {
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // 初始化画布和动画
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    canvas.width = dimensions.width;
+    canvas.height = dimensions.height;
+
+    initParticles(canvas);
+    animate(canvas, ctx);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [dimensions, currentWeather, timeOfDay]);
+
   return (
-    <div className="fixed inset-0 z-[-1]">
-      <Canvas camera={{ position: [0, 0, 10], fov: 75 }}>
-        <Scene />
-      </Canvas>
-    </div>
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 pointer-events-none z-0"
+      style={{
+        width: '100%',
+        height: '100%'
+      }}
+    />
   );
 }
 

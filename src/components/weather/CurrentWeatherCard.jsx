@@ -1,116 +1,70 @@
-import { useEffect } from 'react';
-import { useWeather, WeatherType } from '@/contexts/WeatherContext';
-import { useTheme, TimeOfDay } from '@/contexts/ThemeContext';
+import { useEffect, useState } from 'react';
+import { useWeather, WeatherIcons } from '@/contexts/WeatherContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useLang } from '@/contexts/LangContext';
 import { 
+  MapPin, 
+  RefreshCw, 
+  Thermometer, 
   Droplets, 
-  Wind, 
-  Thermometer,
+  Wind,
+  Eye,
   Gauge,
   Sun,
-  CloudRain,
-  Cloud,
-  CloudFog,
-  CloudLightning,
-  CloudSnow,
-  CloudDrizzle
+  AlertTriangle
 } from 'lucide-react';
 
-// 获取天气图标
-const getWeatherIcon = (weatherType, size = 48) => {
-  const iconProps = { size, strokeWidth: 1.5 };
-  
-  switch (weatherType) {
-    case WeatherType.SUNNY:
-      return <Sun {...iconProps} className="text-yellow-400" />;
-    case WeatherType.CLOUDY:
-      return <Cloud {...iconProps} className="text-gray-400" />;
-    case WeatherType.OVERCAST:
-      return <Cloud {...iconProps} className="text-gray-500" />;
-    case WeatherType.RAIN:
-      return <CloudRain {...iconProps} className="text-blue-400" />;
-    case WeatherType.HEAVY_RAIN:
-      return <CloudRain {...iconProps} className="text-blue-600" />;
-    case WeatherType.THUNDERSTORM:
-      return <CloudLightning {...iconProps} className="text-purple-500" />;
-    case WeatherType.SNOW:
-      return <CloudSnow {...iconProps} className="text-blue-200" />;
-    case WeatherType.FOG:
-      return <CloudFog {...iconProps} className="text-gray-400" />;
-    case WeatherType.DUST:
-      return <CloudFog {...iconProps} className="text-yellow-600" />;
-    default:
-      return <Cloud {...iconProps} className="text-gray-400" />;
-  }
-};
-
-// 获取风向文字
-const getWindDirection = (degrees) => {
-  const directions = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
-  const index = Math.round(degrees / 45) % 8;
-  return directions[index];
-};
-
-// 获取空气质量等级
-const getAirQualityLevel = (aqi) => {
-  if (aqi <= 50) return { level: '优', color: 'text-green-500' };
-  if (aqi <= 100) return { level: '良', color: 'text-yellow-500' };
-  if (aqi <= 150) return { level: '轻度污染', color: 'text-orange-500' };
-  if (aqi <= 200) return { level: '中度污染', color: 'text-red-500' };
-  if (aqi <= 300) return { level: '重度污染', color: 'text-purple-500' };
-  return { level: '严重污染', color: 'text-purple-800' };
-};
-
-// 当前天气卡片组件
 export default function CurrentWeatherCard() {
-  const { currentWeather, isLoading, error, setLocation } = useWeather();
-  const { timeOfDay } = useTheme();
-  
-  // 获取用户位置
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setLocation({
-            latitude,
-            longitude,
-            name: '当前位置', // 这里应该通过反向地理编码获取实际位置名称
-          });
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          // 使用默认位置
-          setLocation({
-            latitude: 31.3,
-            longitude: 120.6,
-            name: '虎丘区 娄门路',
-          });
-        }
-      );
-    } else {
-      // 浏览器不支持地理位置
-      console.error('Geolocation is not supported by this browser.');
-      // 使用默认位置
-      setLocation({
-        latitude: 31.3,
-        longitude: 120.6,
-        name: '虎丘区 娄门路',
-      });
-    }
-  }, [setLocation]);
+  const { currentWeather, isLoading, error, refreshWeatherData, selectedCity } = useWeather();
+  const { getCardStyle, getTextColor, timeOfDay } = useTheme();
+  const { t } = useLang();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // 刷新数据
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshWeatherData();
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
+
+  // 获取空气质量颜色
+  const getAQIColor = (aqi) => {
+    if (aqi <= 50) return 'text-green-500';
+    if (aqi <= 100) return 'text-yellow-500';
+    if (aqi <= 150) return 'text-orange-500';
+    if (aqi <= 200) return 'text-red-500';
+    if (aqi <= 300) return 'text-purple-500';
+    return 'text-red-700';
+  };
+
+  // 获取紫外线等级颜色
+  const getUVColor = (uvIndex) => {
+    if (uvIndex <= 2) return 'text-green-500';
+    if (uvIndex <= 5) return 'text-yellow-500';
+    if (uvIndex <= 7) return 'text-orange-500';
+    if (uvIndex <= 10) return 'text-red-500';
+    return 'text-purple-500';
+  };
 
   // 加载状态
   if (isLoading) {
     return (
-      <div className="bg-white/20 dark:bg-gray-800/40 backdrop-blur-md rounded-xl p-6 shadow-lg animate-pulse">
-        <div className="h-8 bg-gray-300 dark:bg-gray-700 rounded w-1/2 mb-4"></div>
-        <div className="h-24 bg-gray-300 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
-        <div className="h-6 bg-gray-300 dark:bg-gray-700 rounded w-2/3 mb-4"></div>
+      <div 
+        className="p-6 animate-pulse"
+        style={getCardStyle(0.9)}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="h-6 bg-gray-300 rounded w-32"></div>
+          <div className="h-6 bg-gray-300 rounded w-6"></div>
+        </div>
+        <div className="text-center mb-6">
+          <div className="h-20 bg-gray-300 rounded w-32 mx-auto mb-2"></div>
+          <div className="h-4 bg-gray-300 rounded w-24 mx-auto"></div>
+        </div>
         <div className="grid grid-cols-2 gap-4">
-          <div className="h-12 bg-gray-300 dark:bg-gray-700 rounded"></div>
-          <div className="h-12 bg-gray-300 dark:bg-gray-700 rounded"></div>
-          <div className="h-12 bg-gray-300 dark:bg-gray-700 rounded"></div>
-          <div className="h-12 bg-gray-300 dark:bg-gray-700 rounded"></div>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-16 bg-gray-300 rounded"></div>
+          ))}
         </div>
       </div>
     );
@@ -119,144 +73,215 @@ export default function CurrentWeatherCard() {
   // 错误状态
   if (error) {
     return (
-      <div className="bg-red-100 dark:bg-red-900/30 backdrop-blur-md rounded-xl p-6 shadow-lg">
-        <h3 className="text-red-600 dark:text-red-400 font-semibold mb-2">获取天气数据失败</h3>
-        <p className="text-red-500 dark:text-red-300">{error}</p>
-        <button 
-          className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-          onClick={() => setLocation(currentWeather.location)}
+      <div 
+        className="p-6 text-center"
+        style={getCardStyle(0.9)}
+      >
+        <AlertTriangle className="mx-auto mb-4 text-red-500" size={48} />
+        <h3 className="text-lg font-semibold mb-2" style={{ color: getTextColor() }}>
+          {t('error')}
+        </h3>
+        <p className="mb-4" style={{ color: getTextColor('secondary') }}>
+          {error}
+        </p>
+        <button
+          onClick={handleRefresh}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
         >
-          重试
+          {t('retry')}
         </button>
       </div>
     );
   }
 
   // 无数据状态
-  if (!currentWeather || !currentWeather.temperature) {
+  if (!currentWeather) {
     return (
-      <div className="bg-white/20 dark:bg-gray-800/40 backdrop-blur-md rounded-xl p-6 shadow-lg">
-        <p className="text-gray-600 dark:text-gray-300">暂无天气数据</p>
+      <div 
+        className="p-6 text-center"
+        style={getCardStyle(0.9)}
+      >
+        <p style={{ color: getTextColor('secondary') }}>
+          {t('no_data')}
+        </p>
       </div>
     );
   }
 
-  // 获取空气质量信息
-  const airQuality = getAirQualityLevel(currentWeather.airQuality);
-
-  // 卡片样式根据时间和天气变化
-  let cardStyle = 'bg-white/20 dark:bg-gray-800/40';
-  if (timeOfDay === TimeOfDay.NIGHT) {
-    cardStyle = 'bg-gray-800/40 text-white';
-  }
-
   return (
-    <div className={`${cardStyle} backdrop-blur-md rounded-xl p-6 shadow-lg transition-all duration-500 fade-in`}>
-      {/* 位置信息 */}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-            <circle cx="12" cy="10" r="3"/>
-          </svg>
-          {currentWeather.location?.name || '未知位置'}
-        </h2>
-        <span className="text-sm opacity-70">
-          {currentWeather.updatedAt ? new Date(currentWeather.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-        </span>
-      </div>
-      
-      {/* 温度和天气图标 */}
+    <div 
+      className="p-6 transform hover:scale-105 transition-all duration-300"
+      style={getCardStyle(0.9)}
+    >
+      {/* 头部 - 位置和刷新按钮 */}
       <div className="flex items-center justify-between mb-6">
-        <div className="text-7xl font-light">
-          {currentWeather.temperature}°
-        </div>
-        <div className="flex flex-col items-center">
-          {getWeatherIcon(currentWeather.weatherType)}
-          <span className="mt-2 text-lg">
-            {(() => {
-              switch (currentWeather.weatherType) {
-                case WeatherType.SUNNY: return '晴';
-                case WeatherType.CLOUDY: return '多云';
-                case WeatherType.OVERCAST: return '阴';
-                case WeatherType.RAIN: return '小雨';
-                case WeatherType.HEAVY_RAIN: return '大雨';
-                case WeatherType.THUNDERSTORM: return '雷雨';
-                case WeatherType.SNOW: return '雪';
-                case WeatherType.FOG: return '雾';
-                case WeatherType.DUST: return '沙尘';
-                default: return '未知';
-              }
-            })()}
-          </span>
-        </div>
-      </div>
-      
-      {/* 最高最低温度 */}
-      <div className="flex items-center mb-6">
-        <span className="text-lg">最高32° 最低24°</span>
-        <div className="ml-4 flex items-center">
-          <span className={`px-3 py-1 rounded-full text-sm ${airQuality.color} bg-white/30 dark:bg-gray-700/30`}>
-            空气{airQuality.level} {currentWeather.airQuality}
-          </span>
-        </div>
-      </div>
-      
-      {/* 详细信息 */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="flex items-center p-3 bg-white/10 dark:bg-gray-700/20 rounded-lg">
-          <Droplets className="mr-3 text-blue-500" size={24} />
+        <div className="flex items-center">
+          <MapPin className="mr-2" size={20} style={{ color: getTextColor('secondary') }} />
           <div>
-            <div className="text-sm opacity-70">湿度</div>
-            <div className="font-semibold">{currentWeather.humidity}%</div>
+            <h2 className="text-lg font-semibold" style={{ color: getTextColor() }}>
+              {currentWeather.location.name}
+            </h2>
+            <p className="text-sm" style={{ color: getTextColor('secondary') }}>
+              {currentWeather.location.region}
+            </p>
           </div>
         </div>
         
-        <div className="flex items-center p-3 bg-white/10 dark:bg-gray-700/20 rounded-lg">
-          <Wind className="mr-3 text-blue-400" size={24} />
-          <div>
-            <div className="text-sm opacity-70">风速</div>
-            <div className="font-semibold">
-              {getWindDirection(currentWeather.windDirection)}风 {currentWeather.windSpeed}级
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="p-2 rounded-full hover:bg-white hover:bg-opacity-20 transition-all duration-200"
+          style={{ color: getTextColor('secondary') }}
+        >
+          <RefreshCw 
+            size={20} 
+            className={isRefreshing ? 'animate-spin' : ''} 
+          />
+        </button>
+      </div>
+
+      {/* 主要天气信息 */}
+      <div className="text-center mb-8">
+        {/* 天气图标和温度 */}
+        <div className="flex items-center justify-center mb-4">
+          <span className="text-6xl mr-4 animate-bounce">
+            {WeatherIcons[currentWeather.weatherType]}
+          </span>
+          <div className="text-right">
+            <div className="text-6xl font-light" style={{ color: getTextColor() }}>
+              {currentWeather.temperature}°
+            </div>
+            <div className="text-lg" style={{ color: getTextColor('secondary') }}>
+              {t(`weather.${currentWeather.weatherType}`)}
             </div>
           </div>
         </div>
-        
-        <div className="flex items-center p-3 bg-white/10 dark:bg-gray-700/20 rounded-lg">
-          <Thermometer className="mr-3 text-red-400" size={24} />
+
+        {/* 最高最低温度 */}
+        <div className="flex items-center justify-center space-x-4">
+          <span style={{ color: getTextColor('secondary') }}>
+            {t('weather.max_temp')}: {currentWeather.maxTemp}°
+          </span>
+          <span style={{ color: getTextColor('muted') }}>|</span>
+          <span style={{ color: getTextColor('secondary') }}>
+            {t('weather.min_temp')}: {currentWeather.minTemp}°
+          </span>
+        </div>
+
+        {/* 体感温度 */}
+        <div className="mt-2">
+          <span style={{ color: getTextColor('secondary') }}>
+            {t('weather.feels_like')}: {currentWeather.feelsLike}°
+          </span>
+        </div>
+      </div>
+
+      {/* 详细信息网格 */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        {/* 湿度 */}
+        <div className="flex items-center p-3 rounded-lg bg-white bg-opacity-10">
+          <Droplets className="mr-3 text-blue-400" size={20} />
           <div>
-            <div className="text-sm opacity-70">体感温度</div>
-            <div className="font-semibold">{currentWeather.feelsLike}°</div>
+            <div className="text-sm" style={{ color: getTextColor('secondary') }}>
+              {t('weather.humidity')}
+            </div>
+            <div className="font-semibold" style={{ color: getTextColor() }}>
+              {currentWeather.humidity}%
+            </div>
           </div>
         </div>
-        
-        <div className="flex items-center p-3 bg-white/10 dark:bg-gray-700/20 rounded-lg">
-          <Gauge className="mr-3 text-purple-400" size={24} />
+
+        {/* 风速 */}
+        <div className="flex items-center p-3 rounded-lg bg-white bg-opacity-10">
+          <Wind className="mr-3 text-gray-400" size={20} />
           <div>
-            <div className="text-sm opacity-70">气压</div>
-            <div className="font-semibold">{currentWeather.pressure} hPa</div>
+            <div className="text-sm" style={{ color: getTextColor('secondary') }}>
+              {t('weather.wind_speed')}
+            </div>
+            <div className="font-semibold" style={{ color: getTextColor() }}>
+              {currentWeather.windSpeed}级
+            </div>
+          </div>
+        </div>
+
+        {/* 能见度 */}
+        <div className="flex items-center p-3 rounded-lg bg-white bg-opacity-10">
+          <Eye className="mr-3 text-green-400" size={20} />
+          <div>
+            <div className="text-sm" style={{ color: getTextColor('secondary') }}>
+              {t('weather.visibility')}
+            </div>
+            <div className="font-semibold" style={{ color: getTextColor() }}>
+              {currentWeather.visibility}km
+            </div>
+          </div>
+        </div>
+
+        {/* 气压 */}
+        <div className="flex items-center p-3 rounded-lg bg-white bg-opacity-10">
+          <Gauge className="mr-3 text-purple-400" size={20} />
+          <div>
+            <div className="text-sm" style={{ color: getTextColor('secondary') }}>
+              {t('weather.pressure')}
+            </div>
+            <div className="font-semibold" style={{ color: getTextColor() }}>
+              {currentWeather.pressure}hPa
+            </div>
           </div>
         </div>
       </div>
-      
-      {/* 天气预警信息 */}
-      {currentWeather.weatherAlerts && currentWeather.weatherAlerts.length > 0 && (
-        <div className="mt-6 p-4 bg-yellow-500/20 dark:bg-yellow-600/20 rounded-lg border-l-4 border-yellow-500 dark:border-yellow-600">
-          <div className="flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500 dark:text-yellow-400 mr-2">
-              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-              <line x1="12" y1="9" x2="12" y2="13"/>
-              <line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
-            <h4 className="font-semibold text-yellow-700 dark:text-yellow-400">
-              {currentWeather.weatherAlerts[0].type}{currentWeather.weatherAlerts[0].severity}预警
-            </h4>
+
+      {/* 空气质量和紫外线 */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* 空气质量 */}
+        <div className="p-3 rounded-lg bg-white bg-opacity-10">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm" style={{ color: getTextColor('secondary') }}>
+              {t('weather.air_quality')}
+            </span>
+            <span className={`font-semibold ${getAQIColor(currentWeather.airQuality.aqi)}`}>
+              {currentWeather.airQuality.level}
+            </span>
           </div>
-          <p className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
-            {currentWeather.weatherAlerts[0].description}
-          </p>
+          <div className="text-xs" style={{ color: getTextColor('muted') }}>
+            AQI: {currentWeather.airQuality.aqi}
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div 
+              className="bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 h-2 rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(100, (currentWeather.airQuality.aqi / 300) * 100)}%` }}
+            ></div>
+          </div>
         </div>
-      )}
+
+        {/* 紫外线指数 */}
+        <div className="p-3 rounded-lg bg-white bg-opacity-10">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm" style={{ color: getTextColor('secondary') }}>
+              {t('weather.uv_index')}
+            </span>
+            <span className={`font-semibold ${getUVColor(currentWeather.uvIndex)}`}>
+              {currentWeather.uvIndex}
+            </span>
+          </div>
+          <div className="flex items-center">
+            <Sun className="mr-2 text-yellow-400" size={16} />
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${(currentWeather.uvIndex / 11) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 更新时间 */}
+      <div className="text-center">
+        <p className="text-xs" style={{ color: getTextColor('muted') }}>
+          {t('last_update', { time: currentWeather.updateTime })}
+        </p>
+      </div>
     </div>
   );
 }
