@@ -1,88 +1,51 @@
 import { useEffect, useRef, useState } from 'react';
-import { useWeather, WeatherType } from '@/contexts/WeatherContext';
-import { useTheme, TimeOfDay } from '@/contexts/ThemeContext';
+import { useWeather } from '@/contexts/WeatherContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
-export default function WeatherBackground() {
-  const { currentWeather } = useWeather();
-  const { timeOfDay } = useTheme();
+const WeatherBackground = () => {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
-  const particlesRef = useRef([]);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const { currentWeather } = useWeather();
+  const { timeOfDay, isDarkMode } = useTheme();
+  const [particles, setParticles] = useState([]);
 
   // 粒子类
   class Particle {
-    constructor(canvas, type, timeOfDay) {
+    constructor(canvas, type = 'rain') {
       this.canvas = canvas;
       this.type = type;
-      this.timeOfDay = timeOfDay;
       this.reset();
     }
 
     reset() {
       this.x = Math.random() * this.canvas.width;
       this.y = -10;
-      this.size = this.getSize();
-      this.speed = this.getSpeed();
-      this.opacity = Math.random() * 0.8 + 0.2;
-      this.angle = Math.random() * Math.PI * 2;
-      this.drift = (Math.random() - 0.5) * 2;
-    }
-
-    getSize() {
-      switch (this.type) {
-        case 'rain':
-          return Math.random() * 2 + 1;
-        case 'snow':
-          return Math.random() * 4 + 2;
-        case 'stars':
-          return Math.random() * 2 + 0.5;
-        case 'clouds':
-          return Math.random() * 60 + 40;
-        default:
-          return 2;
-      }
-    }
-
-    getSpeed() {
-      switch (this.type) {
-        case 'rain':
-          return Math.random() * 8 + 12;
-        case 'snow':
-          return Math.random() * 2 + 1;
-        case 'stars':
-          return 0;
-        case 'clouds':
-          return Math.random() * 0.5 + 0.2;
-        default:
-          return 2;
+      this.speed = this.type === 'rain' ? Math.random() * 5 + 3 : Math.random() * 2 + 1;
+      this.size = this.type === 'rain' ? Math.random() * 2 + 1 : Math.random() * 4 + 2;
+      this.opacity = Math.random() * 0.6 + 0.4;
+      this.wind = Math.random() * 2 - 1;
+      
+      if (this.type === 'snow') {
+        this.swayAmount = Math.random() * 2 + 1;
+        this.swaySpeed = Math.random() * 0.02 + 0.01;
+        this.swayOffset = Math.random() * Math.PI * 2;
       }
     }
 
     update() {
-      switch (this.type) {
-        case 'rain':
-          this.y += this.speed;
-          this.x += this.drift;
-          break;
-        case 'snow':
-          this.y += this.speed;
-          this.x += Math.sin(this.angle) * 0.5;
-          this.angle += 0.02;
-          break;
-        case 'stars':
-          this.opacity = Math.sin(Date.now() * 0.001 + this.angle) * 0.3 + 0.7;
-          break;
-        case 'clouds':
-          this.x += this.speed;
-          if (this.x > this.canvas.width + this.size) {
-            this.x = -this.size;
-          }
-          break;
+      if (this.type === 'rain') {
+        this.y += this.speed;
+        this.x += this.wind;
+      } else if (this.type === 'snow') {
+        this.y += this.speed;
+        this.x += Math.sin(this.y * this.swaySpeed + this.swayOffset) * this.swayAmount;
       }
 
       if (this.y > this.canvas.height + 10) {
         this.reset();
+      }
+      if (this.x < -10 || this.x > this.canvas.width + 10) {
+        this.x = Math.random() * this.canvas.width;
       }
     }
 
@@ -90,261 +53,218 @@ export default function WeatherBackground() {
       ctx.save();
       ctx.globalAlpha = this.opacity;
 
-      switch (this.type) {
-        case 'rain':
-          this.drawRain(ctx);
-          break;
-        case 'snow':
-          this.drawSnow(ctx);
-          break;
-        case 'stars':
-          this.drawStar(ctx);
-          break;
-        case 'clouds':
-          this.drawCloud(ctx);
-          break;
+      if (this.type === 'rain') {
+        // 雨滴效果
+        const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.size * 8);
+        gradient.addColorStop(0, isDarkMode ? 'rgba(147, 197, 253, 0.8)' : 'rgba(59, 130, 246, 0.6)');
+        gradient.addColorStop(1, 'rgba(147, 197, 253, 0.1)');
+        
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = this.size;
+        ctx.lineCap = 'round';
+        
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x + this.wind * 2, this.y + this.size * 8);
+        ctx.stroke();
+      } else if (this.type === 'snow') {
+        // 雪花效果
+        ctx.fillStyle = isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.8)';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 雪花细节
+        ctx.strokeStyle = isDarkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < 6; i++) {
+          const angle = (i * Math.PI) / 3;
+          const x1 = this.x + Math.cos(angle) * this.size;
+          const y1 = this.y + Math.sin(angle) * this.size;
+          const x2 = this.x + Math.cos(angle) * this.size * 0.5;
+          const y2 = this.y + Math.sin(angle) * this.size * 0.5;
+          
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+        }
       }
 
       ctx.restore();
     }
+  }
 
-    drawRain(ctx) {
-      const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + 10);
-      gradient.addColorStop(0, 'rgba(174, 194, 224, 0.8)');
-      gradient.addColorStop(1, 'rgba(174, 194, 224, 0.2)');
-      
-      ctx.strokeStyle = gradient;
-      ctx.lineWidth = this.size;
-      ctx.lineCap = 'round';
-      
-      ctx.beginPath();
-      ctx.moveTo(this.x, this.y);
-      ctx.lineTo(this.x + this.drift, this.y + 10);
-      ctx.stroke();
+  // 云朵类
+  class Cloud {
+    constructor(canvas) {
+      this.canvas = canvas;
+      this.x = Math.random() * canvas.width;
+      this.y = Math.random() * canvas.height * 0.3;
+      this.size = Math.random() * 60 + 40;
+      this.speed = Math.random() * 0.5 + 0.2;
+      this.opacity = Math.random() * 0.3 + 0.1;
     }
 
-    drawSnow(ctx) {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 雪花形状
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.lineWidth = 0.5;
-      for (let i = 0; i < 6; i++) {
-        const angle = (i * Math.PI) / 3;
-        const x1 = this.x + Math.cos(angle) * this.size;
-        const y1 = this.y + Math.sin(angle) * this.size;
-        const x2 = this.x - Math.cos(angle) * this.size;
-        const y2 = this.y - Math.sin(angle) * this.size;
-        
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
+    update() {
+      this.x += this.speed;
+      if (this.x > this.canvas.width + this.size) {
+        this.x = -this.size;
+        this.y = Math.random() * this.canvas.height * 0.3;
       }
     }
 
-    drawStar(ctx) {
-      ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 星光效果
-      ctx.strokeStyle = `rgba(255, 255, 255, ${this.opacity * 0.5})`;
-      ctx.lineWidth = 0.5;
-      ctx.beginPath();
-      ctx.moveTo(this.x - this.size * 2, this.y);
-      ctx.lineTo(this.x + this.size * 2, this.y);
-      ctx.moveTo(this.x, this.y - this.size * 2);
-      ctx.lineTo(this.x, this.y + this.size * 2);
-      ctx.stroke();
-    }
-
-    drawCloud(ctx) {
-      ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity * 0.3})`;
+    draw(ctx) {
+      ctx.save();
+      ctx.globalAlpha = this.opacity;
+      ctx.fillStyle = isDarkMode ? 'rgba(100, 116, 139, 0.4)' : 'rgba(255, 255, 255, 0.6)';
       
-      // 绘制云朵形状
+      // 绘制云朵
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size * 0.6, 0, Math.PI * 2);
-      ctx.arc(this.x + this.size * 0.4, this.y, this.size * 0.8, 0, Math.PI * 2);
-      ctx.arc(this.x + this.size * 0.8, this.y, this.size * 0.6, 0, Math.PI * 2);
-      ctx.arc(this.x - this.size * 0.4, this.y, this.size * 0.7, 0, Math.PI * 2);
+      ctx.arc(this.x, this.y, this.size * 0.5, 0, Math.PI * 2);
+      ctx.arc(this.x + this.size * 0.3, this.y, this.size * 0.4, 0, Math.PI * 2);
+      ctx.arc(this.x + this.size * 0.6, this.y, this.size * 0.3, 0, Math.PI * 2);
+      ctx.arc(this.x - this.size * 0.2, this.y, this.size * 0.3, 0, Math.PI * 2);
       ctx.fill();
+      
+      ctx.restore();
     }
   }
 
-  // 获取粒子类型
-  const getParticleType = () => {
-    if (!currentWeather) return 'stars';
-
-    switch (currentWeather.weatherType) {
-      case WeatherType.RAIN:
-      case WeatherType.HEAVY_RAIN:
-      case WeatherType.THUNDERSTORM:
-        return 'rain';
-      case WeatherType.SNOW:
-        return 'snow';
-      case WeatherType.CLOUDY:
-      case WeatherType.OVERCAST:
-        return 'clouds';
-      default:
-        return timeOfDay === TimeOfDay.NIGHT ? 'stars' : 'clouds';
-    }
-  };
-
-  // 获取粒子数量
-  const getParticleCount = () => {
-    if (!currentWeather) return 50;
-
-    switch (currentWeather.weatherType) {
-      case WeatherType.HEAVY_RAIN:
-      case WeatherType.THUNDERSTORM:
-        return 200;
-      case WeatherType.RAIN:
-        return 100;
-      case WeatherType.SNOW:
-        return 80;
-      case WeatherType.CLOUDY:
-      case WeatherType.OVERCAST:
-        return 20;
-      default:
-        return timeOfDay === TimeOfDay.NIGHT ? 100 : 30;
-    }
-  };
-
-  // 初始化粒子
-  const initParticles = (canvas) => {
-    const particleType = getParticleType();
-    const particleCount = getParticleCount();
-    
-    particlesRef.current = [];
-    for (let i = 0; i < particleCount; i++) {
-      particlesRef.current.push(new Particle(canvas, particleType, timeOfDay));
-    }
-  };
-
-  // 动画循环
-  const animate = (canvas, ctx) => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 绘制背景渐变
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    
-    switch (timeOfDay) {
-      case TimeOfDay.MORNING:
-        gradient.addColorStop(0, 'rgba(135, 206, 235, 0.1)');
-        gradient.addColorStop(1, 'rgba(255, 228, 181, 0.1)');
-        break;
-      case TimeOfDay.NOON:
-        gradient.addColorStop(0, 'rgba(30, 144, 255, 0.1)');
-        gradient.addColorStop(1, 'rgba(135, 206, 250, 0.1)');
-        break;
-      case TimeOfDay.AFTERNOON:
-        gradient.addColorStop(0, 'rgba(255, 127, 80, 0.1)');
-        gradient.addColorStop(1, 'rgba(255, 215, 0, 0.1)');
-        break;
-      case TimeOfDay.EVENING:
-        gradient.addColorStop(0, 'rgba(255, 99, 71, 0.1)');
-        gradient.addColorStop(1, 'rgba(255, 140, 0, 0.1)');
-        break;
-      case TimeOfDay.NIGHT:
-        gradient.addColorStop(0, 'rgba(25, 25, 112, 0.2)');
-        gradient.addColorStop(1, 'rgba(72, 61, 139, 0.2)');
-        break;
+  // 星星类
+  class Star {
+    constructor(canvas) {
+      this.canvas = canvas;
+      this.x = Math.random() * canvas.width;
+      this.y = Math.random() * canvas.height * 0.6;
+      this.size = Math.random() * 2 + 1;
+      this.twinkleSpeed = Math.random() * 0.02 + 0.01;
+      this.twinkleOffset = Math.random() * Math.PI * 2;
+      this.brightness = Math.random() * 0.5 + 0.5;
     }
 
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // 更新和绘制粒子
-    particlesRef.current.forEach(particle => {
-      particle.update();
-      particle.draw(ctx);
-    });
-
-    // 雷电效果
-    if (currentWeather?.weatherType === WeatherType.THUNDERSTORM && Math.random() < 0.001) {
-      drawLightning(ctx, canvas);
+    update() {
+      this.twinkleOffset += this.twinkleSpeed;
     }
 
-    animationRef.current = requestAnimationFrame(() => animate(canvas, ctx));
-  };
-
-  // 绘制闪电
-  const drawLightning = (ctx, canvas) => {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.lineWidth = 3;
-    ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-    ctx.shadowBlur = 10;
-
-    const startX = Math.random() * canvas.width;
-    let currentX = startX;
-    let currentY = 0;
-
-    ctx.beginPath();
-    ctx.moveTo(currentX, currentY);
-
-    while (currentY < canvas.height) {
-      currentY += Math.random() * 50 + 20;
-      currentX += (Math.random() - 0.5) * 100;
-      ctx.lineTo(currentX, currentY);
+    draw(ctx) {
+      if (timeOfDay === 'night' || (timeOfDay === 'evening' && isDarkMode)) {
+        ctx.save();
+        const twinkle = Math.sin(this.twinkleOffset) * 0.3 + 0.7;
+        ctx.globalAlpha = this.brightness * twinkle;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 星光效果
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(this.x - this.size * 2, this.y);
+        ctx.lineTo(this.x + this.size * 2, this.y);
+        ctx.moveTo(this.x, this.y - this.size * 2);
+        ctx.lineTo(this.x, this.y + this.size * 2);
+        ctx.stroke();
+        
+        ctx.restore();
+      }
     }
+  }
 
-    ctx.stroke();
-    ctx.restore();
-
-    // 闪电消失
-    setTimeout(() => {
-      // 闪电效果会在下一帧自动消失
-    }, 100);
-  };
-
-  // 处理窗口大小变化
-  useEffect(() => {
-    const handleResize = () => {
-      setDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // 初始化画布和动画
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    canvas.width = dimensions.width;
-    canvas.height = dimensions.height;
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
 
-    initParticles(canvas);
-    animate(canvas, ctx);
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // 初始化粒子
+    const newParticles = [];
+    const clouds = [];
+    const stars = [];
+
+    // 根据天气条件创建粒子
+    const weatherCondition = currentWeather?.condition || 'sunny';
+    
+    if (weatherCondition.includes('rain') || weatherCondition.includes('thunderstorm')) {
+      const particleCount = weatherCondition.includes('heavy') ? 150 : 
+                           weatherCondition.includes('moderate') ? 100 : 50;
+      for (let i = 0; i < particleCount; i++) {
+        newParticles.push(new Particle(canvas, 'rain'));
+      }
+    } else if (weatherCondition.includes('snow')) {
+      for (let i = 0; i < 80; i++) {
+        newParticles.push(new Particle(canvas, 'snow'));
+      }
+    }
+
+    // 创建云朵
+    if (weatherCondition.includes('cloudy') || weatherCondition.includes('overcast')) {
+      for (let i = 0; i < 5; i++) {
+        clouds.push(new Cloud(canvas));
+      }
+    }
+
+    // 创建星星
+    if (timeOfDay === 'night' || (timeOfDay === 'evening' && isDarkMode)) {
+      for (let i = 0; i < 50; i++) {
+        stars.push(new Star(canvas));
+      }
+    }
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 绘制星星
+      stars.forEach(star => {
+        star.update();
+        star.draw(ctx);
+      });
+
+      // 绘制云朵
+      clouds.forEach(cloud => {
+        cloud.update();
+        cloud.draw(ctx);
+      });
+
+      // 绘制天气粒子
+      newParticles.forEach(particle => {
+        particle.update();
+        particle.draw(ctx);
+      });
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
 
     return () => {
+      window.removeEventListener('resize', resizeCanvas);
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [dimensions, currentWeather, timeOfDay]);
+  }, [currentWeather, timeOfDay, isDarkMode]);
 
   return (
     <canvas
       ref={canvasRef}
       className="fixed inset-0 pointer-events-none z-0"
-      style={{
-        width: '100%',
-        height: '100%'
+      style={{ 
+        background: 'transparent',
+        mixBlendMode: isDarkMode ? 'screen' : 'multiply'
       }}
     />
   );
-}
+};
+
+export default WeatherBackground;
 

@@ -1,480 +1,321 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 
-// 支持的语言列表
-export const SUPPORTED_LANGUAGES = {
+const LangContext = createContext();
+
+export const useLang = () => {
+  const context = useContext(LangContext);
+  if (!context) {
+    throw new Error('useLang must be used within a LangProvider');
+  }
+  return context;
+};
+
+// 支持的语言列表（删除了德语、西班牙语、俄语、阿拉伯语）
+const SUPPORTED_LANGUAGES = {
   'zh-CN': '简体中文',
   'zh-TW': '繁體中文',
   'en': 'English',
   'ja': '日本語',
   'ko': '한국어',
-  'fr': 'Français',
-  'de': 'Deutsch',
-  'es': 'Español',
-  'ru': 'Русский',
-  'ar': 'العربية'
+  'fr': 'Français'
 };
 
-// 翻译数据
+// 翻译资源
 const translations = {
   'zh-CN': {
-    // 通用
-    'loading': '加载中...',
-    'error': '出错了',
-    'retry': '重试',
-    'refresh': '刷新',
-    'settings': '设置',
-    'back': '返回',
-    'save': '保存',
-    'cancel': '取消',
-    'confirm': '确认',
-    'delete': '删除',
-    'add': '添加',
-    'search': '搜索',
-    
-    // 导航
-    'nav.weather': '天气',
-    'nav.forecast': '预报',
-    'nav.cities': '城市',
-    'nav.more': '更多',
-    
-    // 天气相关
-    'weather.current': '当前天气',
-    'weather.feels_like': '体感温度',
-    'weather.humidity': '湿度',
-    'weather.wind_speed': '风速',
-    'weather.wind_direction': '风向',
-    'weather.pressure': '气压',
-    'weather.visibility': '能见度',
-    'weather.uv_index': '紫外线指数',
-    'weather.air_quality': '空气质量',
-    'weather.sunrise': '日出',
-    'weather.sunset': '日落',
-    'weather.max_temp': '最高温度',
-    'weather.min_temp': '最低温度',
-    'weather.precipitation': '降水概率',
-    
-    // 天气类型
-    'weather.sunny': '晴朗',
-    'weather.cloudy': '多云',
-    'weather.overcast': '阴天',
-    'weather.rain': '小雨',
-    'weather.heavy_rain': '大雨',
-    'weather.thunderstorm': '雷阵雨',
-    'weather.snow': '雪',
-    'weather.fog': '雾',
-    'weather.haze': '霾',
-    
+    appTitle: '美观的天气预报应用',
+    currentWeather: '当前天气',
+    hourlyForecast: '小时预报',
+    dailyForecast: '每日预报',
+    weatherDetails: '天气详情',
+    settings: '设置',
+    cities: '城市',
+    forecast: '预报',
+    more: '更多',
+    temperature: '温度',
+    maxTemp: '最高温度',
+    minTemp: '最低温度',
+    feelsLike: '体感温度',
+    humidity: '湿度',
+    windSpeed: '风速',
+    visibility: '能见度',
+    pressure: '气压',
+    airQuality: '空气质量',
+    uvIndex: '紫外线指数',
+    sunrise: '日出',
+    sunset: '日落',
+    precipitationChance: '降水概率',
+    noRainNext2Hours: '未来2小时内无降雨',
+    updateTime: '最后更新',
+    // 天气状况
+    sunny: '晴天',
+    cloudy: '多云',
+    overcast: '阴天',
+    lightRain: '小雨',
+    moderateRain: '中雨',
+    heavyRain: '大雨',
+    thunderstorm: '雷雨',
+    snow: '雪',
+    fog: '雾',
     // 空气质量
-    'aqi.excellent': '优',
-    'aqi.good': '良',
-    'aqi.light_pollution': '轻度污染',
-    'aqi.moderate_pollution': '中度污染',
-    'aqi.heavy_pollution': '重度污染',
-    'aqi.severe_pollution': '严重污染',
-    
-    // 时间
-    'time.now': '现在',
-    'time.today': '今天',
-    'time.tomorrow': '明天',
-    'time.morning': '早晨',
-    'time.noon': '中午',
-    'time.afternoon': '下午',
-    'time.evening': '傍晚',
-    'time.night': '夜晚',
-    
-    // 星期
-    'weekday.sunday': '周日',
-    'weekday.monday': '周一',
-    'weekday.tuesday': '周二',
-    'weekday.wednesday': '周三',
-    'weekday.thursday': '周四',
-    'weekday.friday': '周五',
-    'weekday.saturday': '周六',
-    
-    // 预报
-    'forecast.hourly': '小时预报',
-    'forecast.daily': '每日预报',
-    'forecast.14_days': '14天预报',
-    'forecast.no_rain': '未来2小时内无降雨',
-    'forecast.rain_in': '预计{time}后降雨',
-    
-    // 城市管理
-    'cities.title': '城市管理',
-    'cities.current_location': '当前定位',
-    'cities.search_placeholder': '搜索城市',
-    'cities.search_history': '搜索历史',
-    'cities.major_cities': '主要城市',
-    'cities.add_city': '添加城市',
-    'cities.remove_city': '删除城市',
-    
-    // 设置
-    'settings.title': '设置',
-    'settings.language': '语言',
-    'settings.temperature_unit': '温度单位',
-    'settings.wind_unit': '风速单位',
-    'settings.notifications': '通知设置',
-    'settings.morning_notification': '早晚天气提醒',
-    'settings.weather_alert': '天气预警提醒',
-    'settings.abnormal_weather': '异常天气提醒',
-    'settings.night_mode': '夜间免打扰',
-    'settings.auto_update': '夜间自动更新',
-    'settings.about': '关于天气',
-    
-    // 单位
-    'unit.celsius': '摄氏度°C',
-    'unit.fahrenheit': '华氏度°F',
-    'unit.kmh': '公里/小时',
-    'unit.mph': '英里/小时',
-    'unit.beaufort': '蒲福风力等级',
-    'unit.hpa': 'hPa',
-    'unit.km': '公里',
-    'unit.percent': '%',
-    
-    // 生活指数
-    'lifestyle.clothing': '穿衣指数',
-    'lifestyle.uv_protection': '防晒指数',
-    'lifestyle.outdoor_activity': '户外活动指数',
-    'lifestyle.car_wash': '洗车指数',
-    'lifestyle.travel': '旅游指数',
-    
-    // 错误信息
-    'error.network': '网络连接失败',
-    'error.location': '无法获取位置信息',
-    'error.weather_data': '无法获取天气数据',
-    'error.city_not_found': '未找到该城市',
-    
-    // 其他
-    'app.title': '优雅天气',
-    'app.subtitle': '美观的天气预报应用',
-    'no_data': '暂无数据',
-    'last_update': '最后更新：{time}',
-    'pull_to_refresh': '下拉刷新'
+    good: '优',
+    moderate: '良',
+    unhealthyForSensitive: '轻度污染',
+    unhealthy: '中度污染',
+    veryUnhealthy: '重度污染',
+    hazardous: '严重污染',
+    // 风力等级
+    calm: '无风',
+    lightAir: '软风',
+    lightBreeze: '轻风',
+    gentleBreeze: '微风',
+    moderateBreeze: '和风',
+    freshBreeze: '清风',
+    strongBreeze: '强风',
+    nearGale: '疾风',
+    gale: '大风',
+    strongGale: '烈风',
+    storm: '狂风',
+    violentStorm: '暴风',
+    hurricane: '飓风'
   },
-  
   'zh-TW': {
-    // 通用
-    'loading': '載入中...',
-    'error': '出錯了',
-    'retry': '重試',
-    'refresh': '刷新',
-    'settings': '設定',
-    'back': '返回',
-    'save': '儲存',
-    'cancel': '取消',
-    'confirm': '確認',
-    'delete': '刪除',
-    'add': '新增',
-    'search': '搜尋',
-    
-    // 导航
-    'nav.weather': '天氣',
-    'nav.forecast': '預報',
-    'nav.cities': '城市',
-    'nav.more': '更多',
-    
-    // 天气相关
-    'weather.current': '目前天氣',
-    'weather.feels_like': '體感溫度',
-    'weather.humidity': '濕度',
-    'weather.wind_speed': '風速',
-    'weather.wind_direction': '風向',
-    'weather.pressure': '氣壓',
-    'weather.visibility': '能見度',
-    'weather.uv_index': '紫外線指數',
-    'weather.air_quality': '空氣品質',
-    'weather.sunrise': '日出',
-    'weather.sunset': '日落',
-    'weather.max_temp': '最高溫度',
-    'weather.min_temp': '最低溫度',
-    'weather.precipitation': '降水機率',
-    
-    // 天气类型
-    'weather.sunny': '晴朗',
-    'weather.cloudy': '多雲',
-    'weather.overcast': '陰天',
-    'weather.rain': '小雨',
-    'weather.heavy_rain': '大雨',
-    'weather.thunderstorm': '雷陣雨',
-    'weather.snow': '雪',
-    'weather.fog': '霧',
-    'weather.haze': '霾',
-    
-    // 其他翻译...
-    'app.title': '優雅天氣',
-    'app.subtitle': '美觀的天氣預報應用'
+    appTitle: '美觀的天氣預報應用',
+    currentWeather: '當前天氣',
+    hourlyForecast: '小時預報',
+    dailyForecast: '每日預報',
+    weatherDetails: '天氣詳情',
+    settings: '設置',
+    cities: '城市',
+    forecast: '預報',
+    more: '更多',
+    temperature: '溫度',
+    maxTemp: '最高溫度',
+    minTemp: '最低溫度',
+    feelsLike: '體感溫度',
+    humidity: '濕度',
+    windSpeed: '風速',
+    visibility: '能見度',
+    pressure: '氣壓',
+    airQuality: '空氣質量',
+    uvIndex: '紫外線指數',
+    sunrise: '日出',
+    sunset: '日落',
+    precipitationChance: '降水概率',
+    noRainNext2Hours: '未來2小時內無降雨',
+    updateTime: '最後更新',
+    // 天气状况
+    sunny: '晴天',
+    cloudy: '多雲',
+    overcast: '陰天',
+    lightRain: '小雨',
+    moderateRain: '中雨',
+    heavyRain: '大雨',
+    thunderstorm: '雷雨',
+    snow: '雪',
+    fog: '霧',
+    // 空气质量
+    good: '優',
+    moderate: '良',
+    unhealthyForSensitive: '輕度污染',
+    unhealthy: '中度污染',
+    veryUnhealthy: '重度污染',
+    hazardous: '嚴重污染'
   },
-  
   'en': {
-    // 通用
-    'loading': 'Loading...',
-    'error': 'Error occurred',
-    'retry': 'Retry',
-    'refresh': 'Refresh',
-    'settings': 'Settings',
-    'back': 'Back',
-    'save': 'Save',
-    'cancel': 'Cancel',
-    'confirm': 'Confirm',
-    'delete': 'Delete',
-    'add': 'Add',
-    'search': 'Search',
-    
-    // 导航
-    'nav.weather': 'Weather',
-    'nav.forecast': 'Forecast',
-    'nav.cities': 'Cities',
-    'nav.more': 'More',
-    
-    // 天气相关
-    'weather.current': 'Current Weather',
-    'weather.feels_like': 'Feels Like',
-    'weather.humidity': 'Humidity',
-    'weather.wind_speed': 'Wind Speed',
-    'weather.wind_direction': 'Wind Direction',
-    'weather.pressure': 'Pressure',
-    'weather.visibility': 'Visibility',
-    'weather.uv_index': 'UV Index',
-    'weather.air_quality': 'Air Quality',
-    'weather.sunrise': 'Sunrise',
-    'weather.sunset': 'Sunset',
-    'weather.max_temp': 'Max Temp',
-    'weather.min_temp': 'Min Temp',
-    'weather.precipitation': 'Precipitation',
-    
-    // 天气类型
-    'weather.sunny': 'Sunny',
-    'weather.cloudy': 'Cloudy',
-    'weather.overcast': 'Overcast',
-    'weather.rain': 'Rain',
-    'weather.heavy_rain': 'Heavy Rain',
-    'weather.thunderstorm': 'Thunderstorm',
-    'weather.snow': 'Snow',
-    'weather.fog': 'Fog',
-    'weather.haze': 'Haze',
-    
-    // 其他翻译...
-    'app.title': 'Elegant Weather',
-    'app.subtitle': 'Beautiful Weather App'
+    appTitle: 'Beautiful Weather App',
+    currentWeather: 'Current Weather',
+    hourlyForecast: 'Hourly Forecast',
+    dailyForecast: 'Daily Forecast',
+    weatherDetails: 'Weather Details',
+    settings: 'Settings',
+    cities: 'Cities',
+    forecast: 'Forecast',
+    more: 'More',
+    temperature: 'Temperature',
+    maxTemp: 'Max Temp',
+    minTemp: 'Min Temp',
+    feelsLike: 'Feels Like',
+    humidity: 'Humidity',
+    windSpeed: 'Wind Speed',
+    visibility: 'Visibility',
+    pressure: 'Pressure',
+    airQuality: 'Air Quality',
+    uvIndex: 'UV Index',
+    sunrise: 'Sunrise',
+    sunset: 'Sunset',
+    precipitationChance: 'Precipitation',
+    noRainNext2Hours: 'No rain in next 2 hours',
+    updateTime: 'Last Updated',
+    // 天气状况
+    sunny: 'Sunny',
+    cloudy: 'Cloudy',
+    overcast: 'Overcast',
+    lightRain: 'Light Rain',
+    moderateRain: 'Moderate Rain',
+    heavyRain: 'Heavy Rain',
+    thunderstorm: 'Thunderstorm',
+    snow: 'Snow',
+    fog: 'Fog',
+    // 空气质量
+    good: 'Good',
+    moderate: 'Moderate',
+    unhealthyForSensitive: 'Unhealthy for Sensitive',
+    unhealthy: 'Unhealthy',
+    veryUnhealthy: 'Very Unhealthy',
+    hazardous: 'Hazardous'
   },
-  
   'ja': {
-    // 通用
-    'loading': '読み込み中...',
-    'error': 'エラーが発生しました',
-    'retry': '再試行',
-    'refresh': '更新',
-    'settings': '設定',
-    'back': '戻る',
-    'save': '保存',
-    'cancel': 'キャンセル',
-    'confirm': '確認',
-    'delete': '削除',
-    'add': '追加',
-    'search': '検索',
-    
-    // 导航
-    'nav.weather': '天気',
-    'nav.forecast': '予報',
-    'nav.cities': '都市',
-    'nav.more': 'その他',
-    
-    // 天气相关
-    'weather.current': '現在の天気',
-    'weather.feels_like': '体感温度',
-    'weather.humidity': '湿度',
-    'weather.wind_speed': '風速',
-    'weather.wind_direction': '風向',
-    'weather.pressure': '気圧',
-    'weather.visibility': '視程',
-    'weather.uv_index': 'UV指数',
-    'weather.air_quality': '大気質',
-    'weather.sunrise': '日の出',
-    'weather.sunset': '日の入り',
-    'weather.max_temp': '最高気温',
-    'weather.min_temp': '最低気温',
-    'weather.precipitation': '降水確率',
-    
-    // 天气类型
-    'weather.sunny': '晴れ',
-    'weather.cloudy': '曇り',
-    'weather.overcast': '曇天',
-    'weather.rain': '雨',
-    'weather.heavy_rain': '大雨',
-    'weather.thunderstorm': '雷雨',
-    'weather.snow': '雪',
-    'weather.fog': '霧',
-    'weather.haze': 'かすみ',
-    
-    // 其他翻译...
-    'app.title': 'エレガント天気',
-    'app.subtitle': '美しい天気予報アプリ'
+    appTitle: '美しい天気アプリ',
+    currentWeather: '現在の天気',
+    hourlyForecast: '時間別予報',
+    dailyForecast: '日別予報',
+    weatherDetails: '天気詳細',
+    settings: '設定',
+    cities: '都市',
+    forecast: '予報',
+    more: 'その他',
+    temperature: '気温',
+    maxTemp: '最高気温',
+    minTemp: '最低気温',
+    feelsLike: '体感温度',
+    humidity: '湿度',
+    windSpeed: '風速',
+    visibility: '視程',
+    pressure: '気圧',
+    airQuality: '空気質',
+    uvIndex: 'UV指数',
+    sunrise: '日の出',
+    sunset: '日の入り',
+    precipitationChance: '降水確率',
+    noRainNext2Hours: '今後2時間は雨なし',
+    updateTime: '最終更新',
+    // 天气状况
+    sunny: '晴れ',
+    cloudy: '曇り',
+    overcast: '曇天',
+    lightRain: '小雨',
+    moderateRain: '雨',
+    heavyRain: '大雨',
+    thunderstorm: '雷雨',
+    snow: '雪',
+    fog: '霧'
   },
-  
   'ko': {
-    // 通用
-    'loading': '로딩 중...',
-    'error': '오류가 발생했습니다',
-    'retry': '다시 시도',
-    'refresh': '새로고침',
-    'settings': '설정',
-    'back': '뒤로',
-    'save': '저장',
-    'cancel': '취소',
-    'confirm': '확인',
-    'delete': '삭제',
-    'add': '추가',
-    'search': '검색',
-    
-    // 导航
-    'nav.weather': '날씨',
-    'nav.forecast': '예보',
-    'nav.cities': '도시',
-    'nav.more': '더보기',
-    
-    // 天气相关
-    'weather.current': '현재 날씨',
-    'weather.feels_like': '체감온도',
-    'weather.humidity': '습도',
-    'weather.wind_speed': '풍속',
-    'weather.wind_direction': '풍향',
-    'weather.pressure': '기압',
-    'weather.visibility': '가시거리',
-    'weather.uv_index': 'UV 지수',
-    'weather.air_quality': '대기질',
-    'weather.sunrise': '일출',
-    'weather.sunset': '일몰',
-    'weather.max_temp': '최고기온',
-    'weather.min_temp': '최저기온',
-    'weather.precipitation': '강수확률',
-    
-    // 天气类型
-    'weather.sunny': '맑음',
-    'weather.cloudy': '구름많음',
-    'weather.overcast': '흐림',
-    'weather.rain': '비',
-    'weather.heavy_rain': '폭우',
-    'weather.thunderstorm': '뇌우',
-    'weather.snow': '눈',
-    'weather.fog': '안개',
-    'weather.haze': '연무',
-    
-    // 其他翻译...
-    'app.title': '우아한 날씨',
-    'app.subtitle': '아름다운 날씨 앱'
+    appTitle: '아름다운 날씨 앱',
+    currentWeather: '현재 날씨',
+    hourlyForecast: '시간별 예보',
+    dailyForecast: '일별 예보',
+    weatherDetails: '날씨 상세',
+    settings: '설정',
+    cities: '도시',
+    forecast: '예보',
+    more: '더보기',
+    temperature: '온도',
+    maxTemp: '최고온도',
+    minTemp: '최저온도',
+    feelsLike: '체감온도',
+    humidity: '습도',
+    windSpeed: '풍속',
+    visibility: '가시거리',
+    pressure: '기압',
+    airQuality: '공기질',
+    uvIndex: '자외선지수',
+    sunrise: '일출',
+    sunset: '일몰',
+    precipitationChance: '강수확률',
+    noRainNext2Hours: '향후 2시간 비 없음',
+    updateTime: '마지막 업데이트',
+    // 天气状况
+    sunny: '맑음',
+    cloudy: '구름많음',
+    overcast: '흐림',
+    lightRain: '가벼운 비',
+    moderateRain: '비',
+    heavyRain: '폭우',
+    thunderstorm: '뇌우',
+    snow: '눈',
+    fog: '안개'
   },
-  
   'fr': {
-    // 通用
-    'loading': 'Chargement...',
-    'error': 'Une erreur s\'est produite',
-    'retry': 'Réessayer',
-    'refresh': 'Actualiser',
-    'settings': 'Paramètres',
-    'back': 'Retour',
-    'save': 'Enregistrer',
-    'cancel': 'Annuler',
-    'confirm': 'Confirmer',
-    'delete': 'Supprimer',
-    'add': 'Ajouter',
-    'search': 'Rechercher',
-    
-    // 导航
-    'nav.weather': 'Météo',
-    'nav.forecast': 'Prévisions',
-    'nav.cities': 'Villes',
-    'nav.more': 'Plus',
-    
-    // 天气相关
-    'weather.current': 'Météo Actuelle',
-    'weather.feels_like': 'Ressenti',
-    'weather.humidity': 'Humidité',
-    'weather.wind_speed': 'Vitesse du Vent',
-    'weather.wind_direction': 'Direction du Vent',
-    'weather.pressure': 'Pression',
-    'weather.visibility': 'Visibilité',
-    'weather.uv_index': 'Indice UV',
-    'weather.air_quality': 'Qualité de l\'Air',
-    'weather.sunrise': 'Lever du Soleil',
-    'weather.sunset': 'Coucher du Soleil',
-    'weather.max_temp': 'Temp. Max',
-    'weather.min_temp': 'Temp. Min',
-    'weather.precipitation': 'Précipitations',
-    
-    // 天气类型
-    'weather.sunny': 'Ensoleillé',
-    'weather.cloudy': 'Nuageux',
-    'weather.overcast': 'Couvert',
-    'weather.rain': 'Pluie',
-    'weather.heavy_rain': 'Forte Pluie',
-    'weather.thunderstorm': 'Orage',
-    'weather.snow': 'Neige',
-    'weather.fog': 'Brouillard',
-    'weather.haze': 'Brume',
-    
-    // 其他翻译...
-    'app.title': 'Météo Élégante',
-    'app.subtitle': 'Belle Application Météo'
+    appTitle: 'Belle Application Météo',
+    currentWeather: 'Météo Actuelle',
+    hourlyForecast: 'Prévisions Horaires',
+    dailyForecast: 'Prévisions Quotidiennes',
+    weatherDetails: 'Détails Météo',
+    settings: 'Paramètres',
+    cities: 'Villes',
+    forecast: 'Prévisions',
+    more: 'Plus',
+    temperature: 'Température',
+    maxTemp: 'Temp. Max',
+    minTemp: 'Temp. Min',
+    feelsLike: 'Ressenti',
+    humidity: 'Humidité',
+    windSpeed: 'Vitesse du Vent',
+    visibility: 'Visibilité',
+    pressure: 'Pression',
+    airQuality: 'Qualité de l\'Air',
+    uvIndex: 'Indice UV',
+    sunrise: 'Lever du Soleil',
+    sunset: 'Coucher du Soleil',
+    precipitationChance: 'Précipitations',
+    noRainNext2Hours: 'Pas de pluie dans les 2h',
+    updateTime: 'Dernière Mise à Jour',
+    // 天气状况
+    sunny: 'Ensoleillé',
+    cloudy: 'Nuageux',
+    overcast: 'Couvert',
+    lightRain: 'Pluie Légère',
+    moderateRain: 'Pluie Modérée',
+    heavyRain: 'Forte Pluie',
+    thunderstorm: 'Orage',
+    snow: 'Neige',
+    fog: 'Brouillard'
   }
 };
 
-// 创建上下文
-const LangContext = createContext();
+export const LangProvider = ({ children }) => {
+  const [currentLang, setCurrentLang] = useState('zh-CN');
 
-// Provider 组件
-export function LangProvider({ children }) {
-  const [currentLanguage, setCurrentLanguage] = useState('zh-CN');
-
-  // 从本地存储加载语言设置
   useEffect(() => {
-    const savedLanguage = localStorage.getItem('weather-app-language');
-    if (savedLanguage && SUPPORTED_LANGUAGES[savedLanguage]) {
-      setCurrentLanguage(savedLanguage);
+    // 从本地存储获取语言设置
+    const savedLang = localStorage.getItem('language');
+    if (savedLang && SUPPORTED_LANGUAGES[savedLang]) {
+      setCurrentLang(savedLang);
     } else {
       // 检测浏览器语言
-      const browserLanguage = navigator.language || navigator.userLanguage;
-      if (SUPPORTED_LANGUAGES[browserLanguage]) {
-        setCurrentLanguage(browserLanguage);
-      } else if (browserLanguage.startsWith('zh')) {
-        setCurrentLanguage(browserLanguage.includes('TW') || browserLanguage.includes('HK') ? 'zh-TW' : 'zh-CN');
-      } else if (SUPPORTED_LANGUAGES[browserLanguage.split('-')[0]]) {
-        setCurrentLanguage(browserLanguage.split('-')[0]);
+      const browserLang = navigator.language || navigator.languages[0];
+      const langCode = browserLang.split('-')[0];
+      
+      // 匹配支持的语言
+      if (browserLang === 'zh-CN' || browserLang === 'zh-TW') {
+        setCurrentLang(browserLang);
+      } else if (SUPPORTED_LANGUAGES[langCode]) {
+        setCurrentLang(langCode);
+      } else {
+        setCurrentLang('en'); // 默认英语
       }
     }
   }, []);
 
-  // 切换语言
-  const changeLanguage = (language) => {
-    if (SUPPORTED_LANGUAGES[language]) {
-      setCurrentLanguage(language);
-      localStorage.setItem('weather-app-language', language);
+  const changeLang = (langCode) => {
+    if (SUPPORTED_LANGUAGES[langCode]) {
+      setCurrentLang(langCode);
+      localStorage.setItem('language', langCode);
     }
   };
 
-  // 翻译函数
-  const t = (key, params = {}) => {
-    const translation = translations[currentLanguage]?.[key] || translations['zh-CN']?.[key] || key;
-    
-    // 替换参数
-    return translation.replace(/\{(\w+)\}/g, (match, param) => {
-      return params[param] || match;
-    });
-  };
-
-  // 获取当前语言信息
-  const getCurrentLanguageInfo = () => {
-    return {
-      code: currentLanguage,
-      name: SUPPORTED_LANGUAGES[currentLanguage],
-      isRTL: currentLanguage === 'ar' // 阿拉伯语从右到左
-    };
+  const t = (key) => {
+    return translations[currentLang]?.[key] || translations['en']?.[key] || key;
   };
 
   const value = {
-    currentLanguage,
-    changeLanguage,
+    currentLang,
+    changeLang,
     t,
-    getCurrentLanguageInfo,
-    supportedLanguages: SUPPORTED_LANGUAGES
+    supportedLanguages: SUPPORTED_LANGUAGES,
+    isRTL: false // 删除了阿拉伯语，所以不需要RTL支持
   };
 
   return (
@@ -482,14 +323,5 @@ export function LangProvider({ children }) {
       {children}
     </LangContext.Provider>
   );
-}
-
-// Hook
-export function useLang() {
-  const context = useContext(LangContext);
-  if (!context) {
-    throw new Error('useLang must be used within a LangProvider');
-  }
-  return context;
-}
+};
 

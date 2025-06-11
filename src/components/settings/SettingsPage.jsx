@@ -1,479 +1,274 @@
 import { useState } from 'react';
-import { useTheme, ThemeMode } from '@/contexts/ThemeContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useLang } from '@/contexts/LangContext';
-import { 
-  Settings, 
-  Globe, 
-  Thermometer, 
-  Wind, 
-  Bell, 
-  Moon, 
-  Palette,
-  Info,
-  ChevronRight,
-  Check,
-  X
-} from 'lucide-react';
 
-export default function SettingsPage() {
-  const { 
-    themeMode, 
-    changeThemeMode, 
-    isDarkMode, 
-    getCardStyle, 
-    getTextColor,
-    timeOfDay,
-    getTimeOfDayName
-  } = useTheme();
-  const { 
-    t, 
-    currentLanguage, 
-    changeLanguage, 
-    supportedLanguages 
-  } = useLang();
-
+const SettingsPage = () => {
+  const { theme, isDarkMode, toggleDarkMode } = useTheme();
+  const { t, currentLang, changeLang, supportedLanguages } = useLang();
   const [notifications, setNotifications] = useState({
-    morning: true,
-    weatherAlert: true,
-    abnormalWeather: true,
-    nightMode: false,
-    autoUpdate: true
+    weather: true,
+    alerts: true,
+    daily: false,
+    nightMode: false
   });
 
-  const [units, setUnits] = useState({
-    temperature: 'celsius',
-    wind: 'beaufort'
-  });
-
-  const [showLanguageModal, setShowLanguageModal] = useState(false);
-  const [showThemeModal, setShowThemeModal] = useState(false);
-  const [showAboutModal, setShowAboutModal] = useState(false);
-
-  // 切换通知设置
-  const toggleNotification = (key) => {
-    const newNotifications = {
-      ...notifications,
-      [key]: !notifications[key]
-    };
-    setNotifications(newNotifications);
-    localStorage.setItem('weather-app-notifications', JSON.stringify(newNotifications));
+  const handleNotificationChange = (key) => {
+    setNotifications(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
   };
 
-  // 切换单位设置
-  const changeUnit = (type, value) => {
-    const newUnits = {
-      ...units,
-      [type]: value
-    };
-    setUnits(newUnits);
-    localStorage.setItem('weather-app-units', JSON.stringify(newUnits));
-  };
-
-  // 设置项组件
-  const SettingItem = ({ icon: Icon, title, subtitle, children, onClick }) => (
-    <div 
-      className={`p-4 rounded-lg bg-white bg-opacity-10 hover:bg-opacity-20 transition-all duration-200 ${onClick ? 'cursor-pointer' : ''}`}
-      onClick={onClick}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center flex-1">
-          <Icon className="mr-3" size={20} style={{ color: getTextColor('secondary') }} />
-          <div className="flex-1">
-            <div className="font-semibold" style={{ color: getTextColor() }}>
-              {title}
-            </div>
-            {subtitle && (
-              <div className="text-sm" style={{ color: getTextColor('secondary') }}>
-                {subtitle}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center">
-          {children}
-          {onClick && (
-            <ChevronRight className="ml-2" size={16} style={{ color: getTextColor('secondary') }} />
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  // 开关组件
-  const Toggle = ({ checked, onChange }) => (
-    <button
-      onClick={onChange}
-      className={`relative w-12 h-6 rounded-full transition-all duration-200 ${
-        checked ? 'bg-blue-500' : 'bg-gray-400 bg-opacity-50'
-      }`}
-    >
-      <div
-        className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-200 ${
-          checked ? 'left-7' : 'left-1'
-        }`}
-      />
-    </button>
-  );
+  const settingSections = [
+    {
+      title: '天气提醒',
+      items: [
+        {
+          key: 'weather',
+          label: '早晚天气提醒',
+          description: '开启后，7:00/19:00 左右将会收到今天/明天天气推送',
+          value: notifications.weather
+        },
+        {
+          key: 'alerts',
+          label: '天气预警提醒',
+          description: '开启后，将会收到气象灾害预警推送',
+          value: notifications.alerts
+        },
+        {
+          key: 'daily',
+          label: '异常天气提醒',
+          description: '开启后，在降雨、空气质量等天气变化时收到推送',
+          value: notifications.daily
+        },
+        {
+          key: 'nightMode',
+          label: '夜间免打扰',
+          description: '开启后，23:00-次日7:00将屏蔽天气推送',
+          value: notifications.nightMode
+        }
+      ]
+    },
+    {
+      title: '单位',
+      items: [
+        {
+          key: 'temperature',
+          label: '温度单位',
+          description: '摄氏度°C',
+          type: 'select',
+          options: ['摄氏度°C', '华氏度°F']
+        },
+        {
+          key: 'windSpeed',
+          label: '风力单位',
+          description: '蒲福风力等级 (Beaufort scale)',
+          type: 'select',
+          options: ['蒲福风力等级', 'km/h', 'm/s', 'mph']
+        }
+      ]
+    },
+    {
+      title: '其他设置',
+      items: [
+        {
+          key: 'autoUpdate',
+          label: '夜间自动更新',
+          description: '关闭后，23:00-次日7:00将不会自动联网更新天气',
+          value: true
+        }
+      ]
+    }
+  ];
 
   return (
     <div className="space-y-6">
       {/* 页面标题 */}
       <div 
-        className="p-6 text-center"
-        style={getCardStyle(0.9)}
+        className={`rounded-3xl p-6 ${theme.blur} ${theme.shadow} animate-fadeIn`}
+        style={{ 
+          background: theme.cardBackground,
+          border: `1px solid ${theme.borderColor}`
+        }}
       >
-        <h1 className="text-2xl font-bold mb-2" style={{ color: getTextColor() }}>
-          {t('settings.title')}
-        </h1>
-        <p style={{ color: getTextColor('secondary') }}>
-          个性化您的天气体验
-        </p>
+        <h2 className={`text-2xl font-bold ${theme.textColor} flex items-center space-x-3`}>
+          <span className="text-3xl">⚙️</span>
+          <span>{t('settings')}</span>
+        </h2>
       </div>
 
-      {/* 当前状态 */}
+      {/* 主题和语言设置 */}
       <div 
-        className="p-4"
-        style={getCardStyle(0.9)}
+        className={`rounded-3xl p-6 ${theme.blur} ${theme.shadow} animate-slideInUp`}
+        style={{ 
+          background: theme.cardBackground,
+          border: `1px solid ${theme.borderColor}`
+        }}
       >
-        <h3 className="text-lg font-semibold mb-3" style={{ color: getTextColor() }}>
-          当前状态
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="p-3 rounded-lg bg-white bg-opacity-10">
-            <div className="text-sm" style={{ color: getTextColor('secondary') }}>
-              时间段
+        <h3 className={`text-lg font-semibold ${theme.textColor} mb-4`}>外观和语言</h3>
+        
+        <div className="space-y-4">
+          {/* 主题切换 */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className={`font-medium ${theme.textColor}`}>深色模式</div>
+              <div className={`text-sm ${theme.secondaryTextColor}`}>
+                根据时间自动切换或手动选择
+              </div>
             </div>
-            <div className="font-semibold" style={{ color: getTextColor() }}>
-              {getTimeOfDayName(t)}
-            </div>
+            <button
+              onClick={toggleDarkMode}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${
+                isDarkMode ? 'bg-blue-600' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${
+                  isDarkMode ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
           </div>
-          <div className="p-3 rounded-lg bg-white bg-opacity-10">
-            <div className="text-sm" style={{ color: getTextColor('secondary') }}>
-              主题模式
+
+          {/* 语言选择 */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className={`font-medium ${theme.textColor}`}>语言</div>
+              <div className={`text-sm ${theme.secondaryTextColor}`}>
+                选择应用界面语言
+              </div>
             </div>
-            <div className="font-semibold" style={{ color: getTextColor() }}>
-              {themeMode === ThemeMode.AUTO ? '自动' : themeMode === ThemeMode.DARK ? '深色' : '浅色'}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 外观设置 */}
-      <div 
-        className="p-4"
-        style={getCardStyle(0.9)}
-      >
-        <h3 className="text-lg font-semibold mb-4" style={{ color: getTextColor() }}>
-          外观设置
-        </h3>
-        <div className="space-y-3">
-          <SettingItem
-            icon={Globe}
-            title={t('settings.language')}
-            subtitle={supportedLanguages[currentLanguage]}
-            onClick={() => setShowLanguageModal(true)}
-          />
-          
-          <SettingItem
-            icon={Palette}
-            title="主题模式"
-            subtitle={`当前: ${themeMode === ThemeMode.AUTO ? '自动切换' : themeMode === ThemeMode.DARK ? '深色模式' : '浅色模式'}`}
-            onClick={() => setShowThemeModal(true)}
-          />
-        </div>
-      </div>
-
-      {/* 单位设置 */}
-      <div 
-        className="p-4"
-        style={getCardStyle(0.9)}
-      >
-        <h3 className="text-lg font-semibold mb-4" style={{ color: getTextColor() }}>
-          单位设置
-        </h3>
-        <div className="space-y-3">
-          <SettingItem
-            icon={Thermometer}
-            title={t('settings.temperature_unit')}
-            subtitle={units.temperature === 'celsius' ? '摄氏度 (°C)' : '华氏度 (°F)'}
-          >
-            <div className="flex space-x-2">
-              <button
-                onClick={() => changeUnit('temperature', 'celsius')}
-                className={`px-3 py-1 rounded-full text-sm transition-all duration-200 ${
-                  units.temperature === 'celsius' 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-white bg-opacity-20'
-                }`}
-                style={{ color: units.temperature === 'celsius' ? 'white' : getTextColor() }}
-              >
-                °C
-              </button>
-              <button
-                onClick={() => changeUnit('temperature', 'fahrenheit')}
-                className={`px-3 py-1 rounded-full text-sm transition-all duration-200 ${
-                  units.temperature === 'fahrenheit' 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-white bg-opacity-20'
-                }`}
-                style={{ color: units.temperature === 'fahrenheit' ? 'white' : getTextColor() }}
-              >
-                °F
-              </button>
-            </div>
-          </SettingItem>
-
-          <SettingItem
-            icon={Wind}
-            title={t('settings.wind_unit')}
-            subtitle={units.wind === 'beaufort' ? '蒲福风力等级' : '公里/小时'}
-          >
-            <div className="flex space-x-2">
-              <button
-                onClick={() => changeUnit('wind', 'beaufort')}
-                className={`px-3 py-1 rounded-full text-sm transition-all duration-200 ${
-                  units.wind === 'beaufort' 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-white bg-opacity-20'
-                }`}
-                style={{ color: units.wind === 'beaufort' ? 'white' : getTextColor() }}
-              >
-                级
-              </button>
-              <button
-                onClick={() => changeUnit('wind', 'kmh')}
-                className={`px-3 py-1 rounded-full text-sm transition-all duration-200 ${
-                  units.wind === 'kmh' 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-white bg-opacity-20'
-                }`}
-                style={{ color: units.wind === 'kmh' ? 'white' : getTextColor() }}
-              >
-                km/h
-              </button>
-            </div>
-          </SettingItem>
-        </div>
-      </div>
-
-      {/* 通知设置 */}
-      <div 
-        className="p-4"
-        style={getCardStyle(0.9)}
-      >
-        <h3 className="text-lg font-semibold mb-4" style={{ color: getTextColor() }}>
-          {t('settings.notifications')}
-        </h3>
-        <div className="space-y-3">
-          <SettingItem
-            icon={Bell}
-            title={t('settings.morning_notification')}
-            subtitle="开启后，7:00/19:00 左右将会收到今天/明天天气推送"
-          >
-            <Toggle 
-              checked={notifications.morning}
-              onChange={() => toggleNotification('morning')}
-            />
-          </SettingItem>
-
-          <SettingItem
-            icon={Bell}
-            title={t('settings.weather_alert')}
-            subtitle="开启后，将会收到气象灾害预警推送"
-          >
-            <Toggle 
-              checked={notifications.weatherAlert}
-              onChange={() => toggleNotification('weatherAlert')}
-            />
-          </SettingItem>
-
-          <SettingItem
-            icon={Bell}
-            title={t('settings.abnormal_weather')}
-            subtitle="开启后，在降雨、空气质量等天气变化时收到推送"
-          >
-            <Toggle 
-              checked={notifications.abnormalWeather}
-              onChange={() => toggleNotification('abnormalWeather')}
-            />
-          </SettingItem>
-
-          <SettingItem
-            icon={Moon}
-            title="夜间免打扰"
-            subtitle="开启后，23:00-次日7:00将屏蔽天气推送"
-          >
-            <Toggle 
-              checked={notifications.nightMode}
-              onChange={() => toggleNotification('nightMode')}
-            />
-          </SettingItem>
-        </div>
-      </div>
-
-      {/* 其他设置 */}
-      <div 
-        className="p-4"
-        style={getCardStyle(0.9)}
-      >
-        <h3 className="text-lg font-semibold mb-4" style={{ color: getTextColor() }}>
-          其他设置
-        </h3>
-        <div className="space-y-3">
-          <SettingItem
-            icon={Settings}
-            title={t('settings.auto_update')}
-            subtitle="关闭后，23:00-次日7:00将不会自动联网更新天气"
-          >
-            <Toggle 
-              checked={notifications.autoUpdate}
-              onChange={() => toggleNotification('autoUpdate')}
-            />
-          </SettingItem>
-
-          <SettingItem
-            icon={Info}
-            title={t('settings.about')}
-            subtitle="版本信息和用户体验计划"
-            onClick={() => setShowAboutModal(true)}
-          />
-        </div>
-      </div>
-
-      {/* 语言选择模态框 */}
-      {showLanguageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setShowLanguageModal(false)} />
-          <div 
-            className="relative w-full max-w-md max-h-96 overflow-y-auto rounded-lg p-6"
-            style={getCardStyle(0.95)}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold" style={{ color: getTextColor() }}>
-                选择语言
-              </h3>
-              <button
-                onClick={() => setShowLanguageModal(false)}
-                className="p-1 rounded-full hover:bg-white hover:bg-opacity-20"
-                style={{ color: getTextColor('secondary') }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-2">
+            <select
+              value={currentLang}
+              onChange={(e) => changeLang(e.target.value)}
+              className={`px-4 py-2 rounded-xl ${theme.blur} ${theme.textColor} border-0 focus:ring-2 focus:ring-blue-500`}
+              style={{ 
+                background: isDarkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                border: `1px solid ${theme.borderColor}`
+              }}
+            >
               {Object.entries(supportedLanguages).map(([code, name]) => (
-                <button
-                  key={code}
-                  onClick={() => {
-                    changeLanguage(code);
-                    setShowLanguageModal(false);
-                  }}
-                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-white hover:bg-opacity-20 transition-all duration-200"
-                  style={{ color: getTextColor() }}
-                >
-                  <span>{name}</span>
-                  {currentLanguage === code && (
-                    <Check size={16} className="text-blue-400" />
-                  )}
-                </button>
+                <option key={code} value={code} className="bg-gray-800 text-white">
+                  {name}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* 主题选择模态框 */}
-      {showThemeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setShowThemeModal(false)} />
-          <div 
-            className="relative w-full max-w-md rounded-lg p-6"
-            style={getCardStyle(0.95)}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold" style={{ color: getTextColor() }}>
-                主题模式
-              </h3>
-              <button
-                onClick={() => setShowThemeModal(false)}
-                className="p-1 rounded-full hover:bg-white hover:bg-opacity-20"
-                style={{ color: getTextColor('secondary') }}
+      {/* 设置分组 */}
+      {settingSections.map((section, sectionIndex) => (
+        <div 
+          key={section.title}
+          className={`rounded-3xl p-6 ${theme.blur} ${theme.shadow} animate-slideInUp`}
+          style={{ 
+            background: theme.cardBackground,
+            border: `1px solid ${theme.borderColor}`,
+            animationDelay: `${(sectionIndex + 1) * 100}ms`
+          }}
+        >
+          <h3 className={`text-lg font-semibold ${theme.textColor} mb-4`}>
+            {section.title}
+          </h3>
+          
+          <div className="space-y-4">
+            {section.items.map((item, itemIndex) => (
+              <div 
+                key={item.key}
+                className={`flex items-center justify-between p-4 rounded-2xl transition-all duration-300 hover:scale-[1.02]`}
+                style={{ 
+                  background: isDarkMode ? 'rgba(30, 41, 59, 0.3)' : 'rgba(255, 255, 255, 0.3)',
+                  border: `1px solid ${theme.borderColor}`
+                }}
               >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-2">
-              {[
-                { mode: ThemeMode.AUTO, name: '自动切换', desc: '根据时间自动切换主题' },
-                { mode: ThemeMode.LIGHT, name: '浅色模式', desc: '始终使用浅色主题' },
-                { mode: ThemeMode.DARK, name: '深色模式', desc: '始终使用深色主题' }
-              ].map((theme) => (
-                <button
-                  key={theme.mode}
-                  onClick={() => {
-                    changeThemeMode(theme.mode);
-                    setShowThemeModal(false);
-                  }}
-                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-white hover:bg-opacity-20 transition-all duration-200"
-                  style={{ color: getTextColor() }}
-                >
-                  <div className="text-left">
-                    <div className="font-semibold">{theme.name}</div>
-                    <div className="text-sm" style={{ color: getTextColor('secondary') }}>
-                      {theme.desc}
-                    </div>
+                <div className="flex-1">
+                  <div className={`font-medium ${theme.textColor} mb-1`}>
+                    {item.label}
                   </div>
-                  {themeMode === theme.mode && (
-                    <Check size={16} className="text-blue-400" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 关于模态框 */}
-      {showAboutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setShowAboutModal(false)} />
-          <div 
-            className="relative w-full max-w-md rounded-lg p-6"
-            style={getCardStyle(0.95)}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold" style={{ color: getTextColor() }}>
-                关于优雅天气
-              </h3>
-              <button
-                onClick={() => setShowAboutModal(false)}
-                className="p-1 rounded-full hover:bg-white hover:bg-opacity-20"
-                style={{ color: getTextColor('secondary') }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                  <Settings className="text-white" size={32} />
+                  <div className={`text-sm ${theme.secondaryTextColor}`}>
+                    {item.description}
+                  </div>
                 </div>
-                <h4 className="text-xl font-bold mb-2" style={{ color: getTextColor() }}>
-                  优雅天气
-                </h4>
-                <p className="text-sm" style={{ color: getTextColor('secondary') }}>
-                  版本 1.0.0
-                </p>
+                
+                <div className="ml-4">
+                  {item.type === 'select' ? (
+                    <select
+                      className={`px-3 py-2 rounded-lg ${theme.blur} ${theme.textColor} border-0 focus:ring-2 focus:ring-blue-500`}
+                      style={{ 
+                        background: isDarkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                        border: `1px solid ${theme.borderColor}`
+                      }}
+                    >
+                      {item.options.map((option) => (
+                        <option key={option} value={option} className="bg-gray-800 text-white">
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <button
+                      onClick={() => handleNotificationChange(item.key)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${
+                        item.value ? 'bg-blue-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${
+                          item.value ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="text-sm space-y-2" style={{ color: getTextColor('secondary') }}>
-                <p>一个美观优雅的天气应用，支持多语言，具有3D渲染动画效果，适配深色模式和多平台。</p>
-                <p>© 2024 优雅天气. 保留所有权利。</p>
-              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* 关于应用 */}
+      <div 
+        className={`rounded-3xl p-6 ${theme.blur} ${theme.shadow} animate-slideInUp`}
+        style={{ 
+          background: theme.cardBackground,
+          border: `1px solid ${theme.borderColor}`,
+          animationDelay: '400ms'
+        }}
+      >
+        <h3 className={`text-lg font-semibold ${theme.textColor} mb-4`}>关于天气</h3>
+        
+        <div className="space-y-3">
+          <div 
+            className={`p-4 rounded-2xl transition-all duration-300 hover:scale-[1.02] cursor-pointer`}
+            style={{ 
+              background: isDarkMode ? 'rgba(30, 41, 59, 0.3)' : 'rgba(255, 255, 255, 0.3)',
+              border: `1px solid ${theme.borderColor}`
+            }}
+          >
+            <div className={`font-medium ${theme.textColor}`}>用户体验计划</div>
+            <div className={`text-sm ${theme.secondaryTextColor} mt-1`}>
+              帮助我们改进应用体验
+            </div>
+          </div>
+          
+          <div 
+            className={`p-4 rounded-2xl transition-all duration-300 hover:scale-[1.02] cursor-pointer`}
+            style={{ 
+              background: isDarkMode ? 'rgba(30, 41, 59, 0.3)' : 'rgba(255, 255, 255, 0.3)',
+              border: `1px solid ${theme.borderColor}`
+            }}
+          >
+            <div className={`font-medium ${theme.textColor}`}>版本信息</div>
+            <div className={`text-sm ${theme.secondaryTextColor} mt-1`}>
+              v1.0.0 - 美观优雅的天气应用
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
-}
+};
+
+export default SettingsPage;
 
