@@ -1,58 +1,155 @@
-# 优雅天气
+# Elegant Weather App
 
-一个美观优雅的天气应用，支持多语言，具有3D渲染动画效果，适配深色模式和多平台。
+A beautiful and elegant weather application inspired by Apple's WWDC25 Liquid Glass design language. This app features rich animations, multi-language support, and responsive design for all platforms.
 
-## 特点
+![Elegant Weather App Screenshot](screenshots/app_preview.png)
 
-- **美观优雅的UI设计**：简约现代的界面，卡片式布局，信息分区明确
-- **3D渲染动画效果**：根据不同天气和时间段展示不同的3D背景和动画效果
-- **多语言支持**：支持简体中文、繁体中文、英语、日语、韩语、法语等多种语言
-- **深色模式**：根据时间自动切换或手动选择深色/浅色模式
-- **多平台适配**：响应式设计，适配手机、平板和桌面设备
-- **丰富的天气信息**：当前天气、小时预报、14天预报、天气详情等
+## Features
 
-## 技术栈
+### 🎨 Beautiful Liquid Glass UI
+- **WWDC25 Inspired Design**: Featuring Apple's latest Liquid Glass design language with dynamic reflections and transparency
+- **Time-Based Themes**: Automatically changes UI appearance based on time of day (morning, noon, afternoon, night)
+- **Weather-Based Animations**: Dynamic animations that change based on current weather conditions
+- **Fluid Interactions**: Smooth, liquid-like animations for all user interactions
 
-- **前端框架**：React 18
-- **状态管理**：React Context API + useReducer
-- **样式方案**：Tailwind CSS + Styled-components
-- **3D渲染**：Three.js + React Three Fiber
-- **多语言**：i18next + react-i18next
-- **构建工具**：Vite
+### 🌦️ Comprehensive Weather Data
+- Current weather conditions with temperature and "feels like" data
+- Hourly forecast for the next 24 hours
+- 14-day weather forecast with temperature ranges
+- Detailed weather information including humidity, wind speed, visibility, and pressure
+- Air quality index and UV index with visual indicators
+- Sunrise and sunset times with dynamic sun position indicator
 
-## 功能
+### 🌍 Multi-Language Support
+- Simplified Chinese (简体中文)
+- Traditional Chinese (繁體中文)
+- English
+- Japanese (日本語)
+- Korean (한국어)
+- French (Français)
 
-- 显示当前天气信息（温度、天气状况、最高/最低温度、空气质量）
-- 显示小时预报（未来24小时）
-- 显示14天天气预报
-- 显示详细天气信息（湿度、风速、气压、紫外线等）
-- 显示天气预警信息
-- 支持多城市管理
-- 支持多语言切换
-- 支持深色模式
-- 根据时间和天气自动切换界面风格和动画效果
+### 🌓 Theme Options
+- Automatic theme switching based on time of day
+- Manual light/dark mode toggle
+- Dynamic color adaptation based on weather conditions
 
-## 安装与运行
+### 📱 Multi-Platform Support
+- Responsive design for mobile, tablet, and desktop
+- Touch-optimized interface for mobile devices
+- Desktop-optimized layout with sidebar navigation
+- Consistent experience across all device sizes
 
+## Technical Implementation
+
+### Core Technologies
+- **React 18**: Modern functional components with hooks
+- **Tailwind CSS**: Utility-first CSS framework for responsive design
+- **CSS Variables**: Dynamic theming and animation control
+- **CSS Animations**: Fluid, hardware-accelerated animations
+- **Context API**: State management for themes, language, and weather data
+
+### Animation System
+The app features a sophisticated animation system that includes:
+
+- **Weather Effects**: Rain drops, snowflakes, sunshine rays, and cloud movements
+- **Interactive Elements**: Dynamic hover states, click ripples, and focus indicators
+- **Transition Effects**: Smooth transitions between states and pages
+- **Parallax Effects**: Subtle depth effects on scrolling elements
+
+### Liquid Glass CSS Framework
+We've developed a custom CSS framework to implement the Liquid Glass design language:
+
+- **Multi-layered Transparency**: Creating depth through varying levels of transparency
+- **Dynamic Reflections**: Light reflections that respond to user interaction
+- **Content-Aware Colors**: UI elements that adapt their colors based on content
+- **Fluid Animations**: Elements that transform with liquid-like properties
+
+## Getting Started
+
+### Prerequisites
+- Node.js 16.0 or higher
+- npm or yarn
+
+### Installation
+
+1. Clone the repository:
 ```bash
-# 安装依赖
-pnpm install
-
-# 开发模式运行
-pnpm run dev
-
-# 构建生产版本
-pnpm run build
-
-# 预览生产版本
-pnpm run preview
+git clone https://github.com/quiettimejsg/elegant-weather-app.git
+cd elegant-weather-app
 ```
 
-## 截图
+2. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+```
 
-*截图将在项目完成后添加*
+3. Start the development server:
+```bash
+npm run dev
+# or
+yarn dev
+```
 
-## 许可证
+4. Open your browser and navigate to `http://localhost:5173`
 
-MIT
+## Building for Production
 
+```bash
+npm run build
+# or
+yarn build
+```
+
+The built files will be in the `dist` directory, ready to be deployed.
+
+## Project Structure
+
+```
+elegant-weather-app/
+├── public/              # Static assets
+├── src/
+│   ├── assets/          # Images and other assets
+│   ├── components/      # React components
+│   │   ├── layout/      # Layout components
+│   │   ├── settings/    # Settings components
+│   │   └── weather/     # Weather-related components
+│   ├── contexts/        # React context providers
+│   ├── hooks/           # Custom React hooks
+│   ├── i18n/            # Internationalization files
+│   ├── pages/           # Page components
+│   ├── services/        # API services
+│   ├── styles/          # Global styles
+│   │   └── liquid-glass.css  # Liquid Glass CSS framework
+│   ├── themes/          # Theme definitions
+│   ├── utils/           # Utility functions
+│   ├── App.jsx          # Main App component
+│   ├── App.css          # App-specific styles
+│   ├── index.css        # Global CSS
+│   └── main.jsx         # Entry point
+└── package.json         # Project dependencies and scripts
+```
+
+## Design Philosophy
+
+The Elegant Weather App is designed with the following principles in mind:
+
+1. **Beauty in Functionality**: Weather information should be both useful and beautiful
+2. **Responsive to Environment**: The app should adapt to time of day, weather conditions, and user preferences
+3. **Fluid and Natural**: Interactions should feel natural and fluid, mimicking real-world physics
+4. **Accessible and Inclusive**: Weather information should be accessible to everyone, regardless of language or device
+
+## Credits
+
+- Weather data provided by [OpenWeatherMap](https://openweathermap.org/)
+- Design inspired by Apple's WWDC25 Liquid Glass design language
+- Icons from various open-source projects
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+Developed with ❤️ by [Manus AI](https://manus.ai)

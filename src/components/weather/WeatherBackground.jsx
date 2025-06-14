@@ -1,270 +1,382 @@
-import { useEffect, useRef, useState } from 'react';
-import { useWeather } from '@/contexts/WeatherContext';
-import { useTheme } from '@/contexts/ThemeContext';
+import React, { useEffect, useRef, useState } from 'react';
+import { useWeather } from '../../contexts/WeatherContext';
 
+/**
+ * 天气背景组件 - 提供基于天气状况和时间的动态背景和动画效果
+ */
 const WeatherBackground = () => {
-  const canvasRef = useRef(null);
-  const animationRef = useRef(null);
-  const { currentWeather } = useWeather();
-  const { timeOfDay, isDarkMode } = useTheme();
-  const [particles, setParticles] = useState([]);
-
-  // 粒子类
-  class Particle {
-    constructor(canvas, type = 'rain') {
-      this.canvas = canvas;
-      this.type = type;
-      this.reset();
-    }
-
-    reset() {
-      this.x = Math.random() * this.canvas.width;
-      this.y = -10;
-      this.speed = this.type === 'rain' ? Math.random() * 5 + 3 : Math.random() * 2 + 1;
-      this.size = this.type === 'rain' ? Math.random() * 2 + 1 : Math.random() * 4 + 2;
-      this.opacity = Math.random() * 0.6 + 0.4;
-      this.wind = Math.random() * 2 - 1;
-      
-      if (this.type === 'snow') {
-        this.swayAmount = Math.random() * 2 + 1;
-        this.swaySpeed = Math.random() * 0.02 + 0.01;
-        this.swayOffset = Math.random() * Math.PI * 2;
-      }
-    }
-
-    update() {
-      if (this.type === 'rain') {
-        this.y += this.speed;
-        this.x += this.wind;
-      } else if (this.type === 'snow') {
-        this.y += this.speed;
-        this.x += Math.sin(this.y * this.swaySpeed + this.swayOffset) * this.swayAmount;
-      }
-
-      if (this.y > this.canvas.height + 10) {
-        this.reset();
-      }
-      if (this.x < -10 || this.x > this.canvas.width + 10) {
-        this.x = Math.random() * this.canvas.width;
-      }
-    }
-
-    draw(ctx) {
-      ctx.save();
-      ctx.globalAlpha = this.opacity;
-
-      if (this.type === 'rain') {
-        // 雨滴效果
-        const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.size * 8);
-        gradient.addColorStop(0, isDarkMode ? 'rgba(147, 197, 253, 0.8)' : 'rgba(59, 130, 246, 0.6)');
-        gradient.addColorStop(1, 'rgba(147, 197, 253, 0.1)');
-        
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = this.size;
-        ctx.lineCap = 'round';
-        
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y);
-        ctx.lineTo(this.x + this.wind * 2, this.y + this.size * 8);
-        ctx.stroke();
-      } else if (this.type === 'snow') {
-        // 雪花效果
-        ctx.fillStyle = isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.8)';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // 雪花细节
-        ctx.strokeStyle = isDarkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(255, 255, 255, 0.5)';
-        ctx.lineWidth = 0.5;
-        for (let i = 0; i < 6; i++) {
-          const angle = (i * Math.PI) / 3;
-          const x1 = this.x + Math.cos(angle) * this.size;
-          const y1 = this.y + Math.sin(angle) * this.size;
-          const x2 = this.x + Math.cos(angle) * this.size * 0.5;
-          const y2 = this.y + Math.sin(angle) * this.size * 0.5;
-          
-          ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          ctx.lineTo(x2, y2);
-          ctx.stroke();
-        }
-      }
-
-      ctx.restore();
-    }
-  }
-
-  // 云朵类
-  class Cloud {
-    constructor(canvas) {
-      this.canvas = canvas;
-      this.x = Math.random() * canvas.width;
-      this.y = Math.random() * canvas.height * 0.3;
-      this.size = Math.random() * 60 + 40;
-      this.speed = Math.random() * 0.5 + 0.2;
-      this.opacity = Math.random() * 0.3 + 0.1;
-    }
-
-    update() {
-      this.x += this.speed;
-      if (this.x > this.canvas.width + this.size) {
-        this.x = -this.size;
-        this.y = Math.random() * this.canvas.height * 0.3;
-      }
-    }
-
-    draw(ctx) {
-      ctx.save();
-      ctx.globalAlpha = this.opacity;
-      ctx.fillStyle = isDarkMode ? 'rgba(100, 116, 139, 0.4)' : 'rgba(255, 255, 255, 0.6)';
-      
-      // 绘制云朵
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size * 0.5, 0, Math.PI * 2);
-      ctx.arc(this.x + this.size * 0.3, this.y, this.size * 0.4, 0, Math.PI * 2);
-      ctx.arc(this.x + this.size * 0.6, this.y, this.size * 0.3, 0, Math.PI * 2);
-      ctx.arc(this.x - this.size * 0.2, this.y, this.size * 0.3, 0, Math.PI * 2);
-      ctx.fill();
-      
-      ctx.restore();
-    }
-  }
-
-  // 星星类
-  class Star {
-    constructor(canvas) {
-      this.canvas = canvas;
-      this.x = Math.random() * canvas.width;
-      this.y = Math.random() * canvas.height * 0.6;
-      this.size = Math.random() * 2 + 1;
-      this.twinkleSpeed = Math.random() * 0.02 + 0.01;
-      this.twinkleOffset = Math.random() * Math.PI * 2;
-      this.brightness = Math.random() * 0.5 + 0.5;
-    }
-
-    update() {
-      this.twinkleOffset += this.twinkleSpeed;
-    }
-
-    draw(ctx) {
-      if (timeOfDay === 'night' || (timeOfDay === 'evening' && isDarkMode)) {
-        ctx.save();
-        const twinkle = Math.sin(this.twinkleOffset) * 0.3 + 0.7;
-        ctx.globalAlpha = this.brightness * twinkle;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // 星光效果
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.lineWidth = 0.5;
-        ctx.beginPath();
-        ctx.moveTo(this.x - this.size * 2, this.y);
-        ctx.lineTo(this.x + this.size * 2, this.y);
-        ctx.moveTo(this.x, this.y - this.size * 2);
-        ctx.lineTo(this.x, this.y + this.size * 2);
-        ctx.stroke();
-        
-        ctx.restore();
-      }
-    }
-  }
-
+  const containerRef = useRef(null);
+  const { weather, timeOfDay } = useWeather();
+  const [effects, setEffects] = useState({});
+  
+  // 根据时间设置背景类
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    const resizeCanvas = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-
-    // 初始化粒子
-    const newParticles = [];
-    const clouds = [];
-    const stars = [];
-
-    // 根据天气条件创建粒子
-    const weatherCondition = currentWeather?.condition || 'sunny';
+    const container = containerRef.current;
+    if (!container) return;
     
-    if (weatherCondition.includes('rain') || weatherCondition.includes('thunderstorm')) {
-      const particleCount = weatherCondition.includes('heavy') ? 150 : 
-                           weatherCondition.includes('moderate') ? 100 : 50;
-      for (let i = 0; i < particleCount; i++) {
-        newParticles.push(new Particle(canvas, 'rain'));
-      }
-    } else if (weatherCondition.includes('snow')) {
-      for (let i = 0; i < 80; i++) {
-        newParticles.push(new Particle(canvas, 'snow'));
-      }
+    // 移除所有时间相关类
+    container.classList.remove('time-morning', 'time-noon', 'time-afternoon', 'time-night');
+    
+    // 添加当前时间类
+    container.classList.add(`time-${timeOfDay}`);
+  }, [timeOfDay]);
+  
+  // 根据天气状况添加动态效果
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    
+    // 清除现有效果
+    Object.values(effects).forEach(effect => {
+      if (effect && effect.stop) effect.stop();
+    });
+    
+    const newEffects = {};
+    
+    // 根据天气状况添加效果
+    switch(weather.condition) {
+      case 'rainy':
+      case 'drizzle':
+      case 'thunderstorm':
+        newEffects.rain = createRainEffect(container, {
+          density: weather.condition === 'thunderstorm' ? 60 : 30,
+          speed: weather.condition === 'thunderstorm' ? 2 : 1.5
+        });
+        break;
+      case 'snow':
+        newEffects.snow = createSnowEffect(container);
+        break;
+      case 'sunny':
+      case 'clear':
+        newEffects.sunshine = createSunshineEffect(container, {
+          positionX: timeOfDay === 'morning' ? 25 : 
+                     timeOfDay === 'noon' ? 50 : 
+                     timeOfDay === 'afternoon' ? 75 : 85,
+          intensity: timeOfDay === 'night' ? 0.1 : 
+                     timeOfDay === 'morning' ? 0.6 : 
+                     timeOfDay === 'noon' ? 1 : 0.8
+        });
+        break;
+      case 'cloudy':
+      case 'partly-cloudy':
+        newEffects.clouds = createCloudEffect(container, {
+          count: weather.condition === 'cloudy' ? 7 : 3,
+          opacity: timeOfDay === 'night' ? 0.4 : 0.7
+        });
+        break;
+      default:
+        break;
     }
-
-    // 创建云朵
-    if (weatherCondition.includes('cloudy') || weatherCondition.includes('overcast')) {
-      for (let i = 0; i < 5; i++) {
-        clouds.push(new Cloud(canvas));
-      }
-    }
-
-    // 创建星星
-    if (timeOfDay === 'night' || (timeOfDay === 'evening' && isDarkMode)) {
-      for (let i = 0; i < 50; i++) {
-        stars.push(new Star(canvas));
-      }
-    }
-
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // 绘制星星
-      stars.forEach(star => {
-        star.update();
-        star.draw(ctx);
-      });
-
-      // 绘制云朵
-      clouds.forEach(cloud => {
-        cloud.update();
-        cloud.draw(ctx);
-      });
-
-      // 绘制天气粒子
-      newParticles.forEach(particle => {
-        particle.update();
-        particle.draw(ctx);
-      });
-
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    animate();
-
+    
+    setEffects(newEffects);
+    
+    // 清理函数
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      Object.values(newEffects).forEach(effect => {
+        if (effect && effect.stop) effect.stop();
+      });
     };
-  }, [currentWeather, timeOfDay, isDarkMode]);
-
+  }, [weather.condition, timeOfDay]);
+  
   return (
-    <canvas
-      ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-0"
-      style={{ 
-        background: 'transparent',
-        mixBlendMode: isDarkMode ? 'screen' : 'multiply'
+    <div 
+      ref={containerRef} 
+      className="app-background"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: -1,
+        transition: 'background 1s ease'
       }}
     />
   );
 };
 
-export default WeatherBackground;
+// 创建雨滴效果
+function createRainEffect(container, options = {}) {
+  const defaults = {
+    density: 30,      // 雨滴密度
+    speed: 1.5,       // 下落速度倍数
+    size: { min: 2, max: 6 }, // 雨滴大小范围
+    splashEnabled: true // 是否启用溅落效果
+  };
+  
+  const settings = { ...defaults, ...options };
+  const rainEffect = document.createElement('div');
+  rainEffect.className = 'rain-effect';
+  container.appendChild(rainEffect);
+  
+  function createRaindrop() {
+    const raindrop = document.createElement('div');
+    raindrop.className = 'raindrop';
+    
+    // 随机大小和位置
+    const size = Math.random() * (settings.size.max - settings.size.min) + settings.size.min;
+    const posX = Math.random() * 100;
+    const duration = (Math.random() * 1.5 + 1) / settings.speed;
+    
+    raindrop.style.width = `${size}px`;
+    raindrop.style.height = `${size * 3}px`;
+    raindrop.style.left = `${posX}%`;
+    raindrop.style.animationDuration = `${duration}s`;
+    
+    rainEffect.appendChild(raindrop);
+    
+    // 雨滴溅落效果
+    if (settings.splashEnabled) {
+      raindrop.addEventListener('animationend', () => {
+        createSplash(posX);
+        raindrop.remove();
+      });
+    } else {
+      setTimeout(() => raindrop.remove(), duration * 1000);
+    }
+  }
+  
+  function createSplash(posX) {
+    if (!settings.splashEnabled) return;
+    
+    const splash = document.createElement('div');
+    splash.className = 'raindrop-splash';
+    
+    const size = Math.random() * 4 + 2;
+    const posY = Math.random() * 20 + 80; // 主要在底部区域
+    
+    splash.style.width = `${size}px`;
+    splash.style.height = `${size}px`;
+    splash.style.left = `${posX}%`;
+    splash.style.top = `${posY}%`;
+    
+    rainEffect.appendChild(splash);
+    
+    // 动画结束后移除
+    splash.addEventListener('animationend', () => {
+      splash.remove();
+    });
+  }
+  
+  // 初始化雨滴
+  let interval = setInterval(() => {
+    createRaindrop();
+  }, 100 / (settings.density / 30));
+  
+  // 返回控制函数
+  return {
+    stop: () => {
+      clearInterval(interval);
+      rainEffect.remove();
+    },
+    updateSettings: (newOptions) => {
+      Object.assign(settings, newOptions);
+      clearInterval(interval);
+      interval = setInterval(() => {
+        createRaindrop();
+      }, 100 / (settings.density / 30));
+    }
+  };
+}
 
+// 创建雪花效果
+function createSnowEffect(container, options = {}) {
+  const defaults = {
+    density: 40,      // 雪花密度
+    speed: 1,         // 下落速度倍数
+    size: { min: 3, max: 8 }, // 雪花大小范围
+    wind: 20          // 风力大小，影响水平漂移
+  };
+  
+  const settings = { ...defaults, ...options };
+  const snowEffect = document.createElement('div');
+  snowEffect.className = 'snow-effect';
+  container.appendChild(snowEffect);
+  
+  function createSnowflake() {
+    const snowflake = document.createElement('div');
+    snowflake.className = 'snowflake';
+    
+    // 随机大小和位置
+    const size = Math.random() * (settings.size.max - settings.size.min) + settings.size.min;
+    const posX = Math.random() * 100;
+    const duration = (Math.random() * 5 + 10) / settings.speed;
+    const delay = Math.random() * 5;
+    
+    snowflake.style.width = `${size}px`;
+    snowflake.style.height = `${size}px`;
+    snowflake.style.left = `${posX}%`;
+    snowflake.style.animationDuration = `${duration}s`;
+    snowflake.style.animationDelay = `${delay}s`;
+    
+    // 添加随机水平漂移
+    const keyframesName = `snowflake-fall-${Math.floor(Math.random() * 1000)}`;
+    const drift = (Math.random() - 0.5) * settings.wind;
+    
+    const keyframes = `
+      @keyframes ${keyframesName} {
+        0% {
+          transform: translateY(-5%) rotate(0deg) translateX(0);
+          opacity: 0;
+        }
+        10% {
+          opacity: 0.8;
+        }
+        90% {
+          opacity: 0.8;
+        }
+        100% {
+          transform: translateY(100vh) rotate(360deg) translateX(${drift}px);
+          opacity: 0;
+        }
+      }
+    `;
+    
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = keyframes;
+    document.head.appendChild(styleSheet);
+    
+    snowflake.style.animation = `${keyframesName} ${duration}s linear infinite`;
+    
+    snowEffect.appendChild(snowflake);
+    
+    // 动画结束后移除样式表和雪花
+    setTimeout(() => {
+      document.head.removeChild(styleSheet);
+      snowflake.remove();
+    }, (duration + delay) * 1000);
+  }
+  
+  // 初始化雪花
+  for (let i = 0; i < settings.density; i++) {
+    setTimeout(() => {
+      createSnowflake();
+    }, Math.random() * 5000);
+  }
+  
+  // 持续创建雪花
+  let interval = setInterval(() => {
+    createSnowflake();
+  }, 300 / (settings.density / 40));
+  
+  // 返回控制函数
+  return {
+    stop: () => {
+      clearInterval(interval);
+      snowEffect.remove();
+    },
+    updateSettings: (newOptions) => {
+      Object.assign(settings, newOptions);
+      clearInterval(interval);
+      interval = setInterval(() => {
+        createSnowflake();
+      }, 300 / (settings.density / 40));
+    }
+  };
+}
+
+// 创建阳光效果
+function createSunshineEffect(container, options = {}) {
+  const defaults = {
+    positionX: 50,    // 太阳水平位置 (%)
+    positionY: 10,    // 太阳垂直位置 (%)
+    intensity: 0.7,   // 阳光强度
+    rays: 12          // 光线数量
+  };
+  
+  const settings = { ...defaults, ...options };
+  
+  // 创建阳光基础效果
+  const sunshineEffect = document.createElement('div');
+  sunshineEffect.className = 'sunshine-effect';
+  sunshineEffect.style.setProperty('--sun-position-x', `${settings.positionX}%`);
+  sunshineEffect.style.setProperty('--sun-position-y', `${settings.positionY}%`);
+  sunshineEffect.style.setProperty('--sun-intensity', settings.intensity);
+  container.appendChild(sunshineEffect);
+  
+  // 创建太阳光芒
+  const sunRays = document.createElement('div');
+  sunRays.className = 'sun-rays';
+  sunRays.style.setProperty('--sun-position-x', `${settings.positionX}%`);
+  sunRays.style.setProperty('--sun-position-y', `${settings.positionY}%`);
+  container.appendChild(sunRays);
+  
+  // 返回控制函数
+  return {
+    stop: () => {
+      sunshineEffect.remove();
+      sunRays.remove();
+    },
+    updateSettings: (newOptions) => {
+      Object.assign(settings, newOptions);
+      sunshineEffect.style.setProperty('--sun-position-x', `${settings.positionX}%`);
+      sunshineEffect.style.setProperty('--sun-position-y', `${settings.positionY}%`);
+      sunshineEffect.style.setProperty('--sun-intensity', settings.intensity);
+      sunRays.style.setProperty('--sun-position-x', `${settings.positionX}%`);
+      sunRays.style.setProperty('--sun-position-y', `${settings.positionY}%`);
+    }
+  };
+}
+
+// 创建云朵效果
+function createCloudEffect(container, options = {}) {
+  const defaults = {
+    count: 5,         // 云朵数量
+    opacity: 0.7,     // 云朵不透明度
+    speed: 1,         // 移动速度倍数
+    size: { min: 100, max: 200 } // 云朵大小范围
+  };
+  
+  const settings = { ...defaults, ...options };
+  const cloudEffect = document.createElement('div');
+  cloudEffect.className = 'cloud-effect';
+  container.appendChild(cloudEffect);
+  
+  function createCloud() {
+    const cloud = document.createElement('div');
+    cloud.className = 'cloud';
+    
+    // 随机大小和位置
+    const size = Math.random() * (settings.size.max - settings.size.min) + settings.size.min;
+    const posY = Math.random() * 50; // 主要在上半部分
+    const duration = (Math.random() * 60 + 60) / settings.speed;
+    const delay = Math.random() * 30;
+    
+    cloud.style.width = `${size}px`;
+    cloud.style.height = `${size * 0.6}px`;
+    cloud.style.top = `${posY}%`;
+    cloud.style.opacity = settings.opacity;
+    cloud.style.animationDuration = `${duration}s`;
+    cloud.style.animationDelay = `${delay}s`;
+    
+    cloudEffect.appendChild(cloud);
+    
+    // 动画结束后重新创建
+    setTimeout(() => {
+      cloud.remove();
+      createCloud();
+    }, (duration + delay) * 1000);
+  }
+  
+  // 初始化云朵
+  for (let i = 0; i < settings.count; i++) {
+    createCloud();
+  }
+  
+  // 返回控制函数
+  return {
+    stop: () => {
+      cloudEffect.remove();
+    },
+    updateSettings: (newOptions) => {
+      Object.assign(settings, newOptions);
+      // 更新现有云朵的不透明度
+      const clouds = cloudEffect.querySelectorAll('.cloud');
+      clouds.forEach(cloud => {
+        cloud.style.opacity = settings.opacity;
+      });
+    }
+  };
+}
+
+export default WeatherBackground;

@@ -11,125 +11,141 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  const [timeOfDay, setTimeOfDay] = useState('afternoon');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [timeOfDay, setTimeOfDay] = useState('afternoon');
+  const [weatherCondition, setWeatherCondition] = useState('cloudy');
 
   // 获取当前时间段
-  const getTimeOfDay = () => {
+  const getCurrentTimeOfDay = () => {
     const hour = new Date().getHours();
-    if (hour >= 5 && hour < 10) return 'morning';
-    if (hour >= 10 && hour < 14) return 'noon';
-    if (hour >= 14 && hour < 18) return 'afternoon';
-    if (hour >= 18 && hour < 22) return 'evening';
+    if (hour >= 5 && hour < 12) return 'morning';
+    if (hour >= 12 && hour < 17) return 'noon';
+    if (hour >= 17 && hour < 20) return 'afternoon';
     return 'night';
   };
 
-  // 检测系统深色模式偏好
-  const checkSystemDarkMode = () => {
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  // 检测系统主题偏好
+  const getSystemTheme = () => {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
   };
 
+  // 初始化主题
   useEffect(() => {
-    // 初始化时间段
-    setTimeOfDay(getTimeOfDay());
-    
-    // 初始化深色模式
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      setIsDarkMode(savedTheme === 'dark');
+    const systemDark = getSystemTheme();
+    const currentTime = getCurrentTimeOfDay();
+    
+    setTimeOfDay(currentTime);
+    
+    if (savedTheme === 'dark' || (savedTheme === 'auto' && systemDark)) {
+      setIsDarkMode(true);
+    } else if (savedTheme === 'light') {
+      setIsDarkMode(false);
     } else {
-      setIsDarkMode(checkSystemDarkMode());
+      // 根据时间自动切换
+      setIsDarkMode(currentTime === 'night' || systemDark);
     }
+  }, []);
 
-    // 监听系统主题变化
+  // 监听系统主题变化
+  useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e) => {
-      if (!localStorage.getItem('theme')) {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'auto' || !savedTheme) {
         setIsDarkMode(e.matches);
       }
     };
+
     mediaQuery.addEventListener('change', handleChange);
-
-    // 每分钟更新时间段
-    const interval = setInterval(() => {
-      setTimeOfDay(getTimeOfDay());
-    }, 60000);
-
-    return () => {
-      mediaQuery.removeEventListener('change', handleChange);
-      clearInterval(interval);
-    };
+    return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
+  // 定时更新时间段
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newTimeOfDay = getCurrentTimeOfDay();
+      if (newTimeOfDay !== timeOfDay) {
+        setTimeOfDay(newTimeOfDay);
+        
+        // 如果是自动模式，根据时间调整主题
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'auto' || !savedTheme) {
+          setIsDarkMode(newTimeOfDay === 'night' || getSystemTheme());
+        }
+      }
+    }, 60000); // 每分钟检查一次
+
+    return () => clearInterval(interval);
+  }, [timeOfDay]);
+
+  // 切换深色模式
   const toggleDarkMode = () => {
     const newMode = !isDarkMode;
     setIsDarkMode(newMode);
     localStorage.setItem('theme', newMode ? 'dark' : 'light');
   };
 
-  // 获取时间段相关的背景渐变
-  const getTimeGradient = () => {
-    const gradients = {
-      morning: isDarkMode 
-        ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(51, 65, 85, 0.95) 100%)'
-        : 'linear-gradient(135deg, rgba(135, 206, 235, 0.8) 0%, rgba(255, 228, 181, 0.8) 100%)',
-      noon: isDarkMode
-        ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%)'
-        : 'linear-gradient(135deg, rgba(30, 144, 255, 0.8) 0%, rgba(135, 206, 250, 0.8) 100%)',
-      afternoon: isDarkMode
-        ? 'linear-gradient(135deg, rgba(51, 65, 85, 0.95) 0%, rgba(71, 85, 105, 0.95) 100%)'
-        : 'linear-gradient(135deg, rgba(255, 127, 80, 0.8) 0%, rgba(255, 215, 0, 0.8) 100%)',
-      evening: isDarkMode
-        ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(51, 65, 85, 0.95) 100%)'
-        : 'linear-gradient(135deg, rgba(255, 99, 71, 0.8) 0%, rgba(255, 140, 0, 0.8) 100%)',
-      night: isDarkMode
-        ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%)'
-        : 'linear-gradient(135deg, rgba(25, 25, 112, 0.9) 0%, rgba(72, 61, 139, 0.9) 100%)'
-    };
-    return gradients[timeOfDay];
-  };
-
-  // 获取卡片背景样式
-  const getCardBackground = () => {
-    if (isDarkMode) {
-      return 'rgba(15, 23, 42, 0.7)';
+  // 设置主题模式
+  const setThemeMode = (mode) => {
+    localStorage.setItem('theme', mode);
+    if (mode === 'dark') {
+      setIsDarkMode(true);
+    } else if (mode === 'light') {
+      setIsDarkMode(false);
+    } else {
+      // auto mode
+      const systemDark = getSystemTheme();
+      const currentTime = getCurrentTimeOfDay();
+      setIsDarkMode(currentTime === 'night' || systemDark);
     }
-    return 'rgba(255, 255, 255, 0.2)';
   };
 
-  // 获取文本颜色
-  const getTextColor = () => {
-    return isDarkMode ? 'text-white' : 'text-gray-800';
-  };
+  // 获取主题样式
+  const getThemeStyles = () => {
+    const baseStyles = {
+      textColor: isDarkMode ? 'text-white' : 'text-gray-900',
+      secondaryTextColor: isDarkMode ? 'text-gray-300' : 'text-gray-600',
+      backgroundColor: isDarkMode ? 'bg-gray-900' : 'bg-white',
+      borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+      glassBackground: isDarkMode 
+        ? 'rgba(0, 0, 0, 0.3)' 
+        : 'rgba(255, 255, 255, 0.1)',
+      glassBackgroundStrong: isDarkMode 
+        ? 'rgba(0, 0, 0, 0.5)' 
+        : 'rgba(255, 255, 255, 0.2)',
+      shadow: isDarkMode 
+        ? 'shadow-2xl shadow-black/20' 
+        : 'shadow-2xl shadow-black/10',
+      blur: 'glass-morphism',
+      blurStrong: 'glass-morphism-strong',
+      blurUltra: 'glass-morphism-ultra'
+    };
 
-  // 获取次要文本颜色
-  const getSecondaryTextColor = () => {
-    return isDarkMode ? 'text-gray-300' : 'text-gray-600';
-  };
+    // 根据时间段调整背景渐变
+    const timeGradients = {
+      morning: 'weather-gradient-morning',
+      noon: 'weather-gradient-noon', 
+      afternoon: 'weather-gradient-afternoon',
+      night: 'weather-gradient-night'
+    };
 
-  // 获取边框颜色
-  const getBorderColor = () => {
-    return isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.3)';
+    return {
+      ...baseStyles,
+      backgroundGradient: timeGradients[timeOfDay] || timeGradients.afternoon,
+      timeOfDay,
+      weatherCondition
+    };
   };
 
   const value = {
-    timeOfDay,
     isDarkMode,
+    timeOfDay,
+    weatherCondition,
     toggleDarkMode,
-    getTimeGradient,
-    getCardBackground,
-    getTextColor,
-    getSecondaryTextColor,
-    getBorderColor,
-    theme: {
-      background: getTimeGradient(),
-      cardBackground: getCardBackground(),
-      textColor: getTextColor(),
-      secondaryTextColor: getSecondaryTextColor(),
-      borderColor: getBorderColor(),
-      blur: 'backdrop-blur-xl',
-      shadow: isDarkMode ? 'shadow-2xl shadow-black/50' : 'shadow-2xl shadow-black/20'
-    }
+    setThemeMode,
+    setWeatherCondition,
+    theme: getThemeStyles()
   };
 
   return (
