@@ -1,14 +1,55 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useWeather } from '../../contexts/WeatherContext';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
+import * as THREE from 'three';
+import { Canvas, useFrame } from '@react-three/fiber';
 
 /**
- * 当前天气卡片组件 - 使用液体玻璃效果展示当前天气信息
+ * 当前天气卡片组件 - 使用液体玻璃效果和3D动画展示当前天气信息
  */
 const CurrentWeatherCard = () => {
   const { weather } = useWeather();
   const { t } = useTranslation();
   const cardRef = useRef(null);
+  const [rotation, setRotation] = useState({ x: 0, y: 0 });
+  
+  // 3D倾斜效果
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!cardRef.current) return;
+      
+      const card = cardRef.current;
+      const rect = card.getBoundingClientRect();
+      
+      // 计算鼠标相对于卡片的位置 (-1 到 1)
+      const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = ((e.clientY - rect.top) / rect.height) * 2 - 1;
+      
+      // 更新旋转状态
+      setRotation({
+        x: y * -10, // 反转Y轴使倾斜方向更自然
+        y: x * 10
+      });
+      
+      // 更新CSS变量
+      card.style.setProperty('--mouse-x', (x * 0.5 + 0.5).toFixed(2));
+      card.style.setProperty('--mouse-y', (y * 0.5 + 0.5).toFixed(2));
+    };
+    
+    const handleMouseLeave = () => {
+      // 重置旋转
+      setRotation({ x: 0, y: 0 });
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    cardRef.current?.addEventListener('mouseleave', handleMouseLeave);
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      cardRef.current?.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, []);
   
   // 添加卡片上的雨滴/雪花效果
   useEffect(() => {
@@ -61,37 +102,188 @@ const CurrentWeatherCard = () => {
     };
   }, [weather.condition]);
 
-  // 添加光影效果
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      if (!cardRef.current) return;
-      
-      const card = cardRef.current;
-      const rect = card.getBoundingClientRect();
-      
-      // 计算鼠标相对于卡片的位置 (0-1)
-      const x = (e.clientX - rect.left) / rect.width;
-      const y = (e.clientY - rect.top) / rect.height;
-      
-      // 更新CSS变量
-      card.style.setProperty('--mouse-x', x.toFixed(2));
-      card.style.setProperty('--mouse-y', y.toFixed(2));
+  // 3D天气图标组件
+  const WeatherIcon = () => {
+    const meshRef = useRef();
+    
+    // 动画帧更新
+    useFrame((state, delta) => {
+      if (meshRef.current) {
+        meshRef.current.rotation.y += delta * 0.5;
+        meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime) * 0.2;
+      }
+    });
+    
+    // 根据天气状况返回不同的3D模型
+    const renderWeatherModel = () => {
+      switch(weather.condition) {
+        case 'sunny':
+        case 'clear':
+          return (
+            <group ref={meshRef}>
+              <mesh>
+                <sphereGeometry args={[1, 32, 32]} />
+                <meshStandardMaterial 
+                  color="#ffaa44" 
+                  emissive="#ffaa44"
+                  emissiveIntensity={0.5}
+                  roughness={0.3}
+                  metalness={0.8}
+                />
+              </mesh>
+              <pointLight intensity={5} distance={10} color="#ffaa44" />
+            </group>
+          );
+        case 'partly-cloudy':
+          return (
+            <group ref={meshRef}>
+              <mesh position={[0.5, 0, 0]}>
+                <sphereGeometry args={[0.7, 32, 32]} />
+                <meshStandardMaterial 
+                  color="#ffaa44" 
+                  emissive="#ffaa44"
+                  emissiveIntensity={0.3}
+                  roughness={0.3}
+                  metalness={0.8}
+                />
+              </mesh>
+              <mesh position={[-0.5, 0, 0.5]}>
+                <sphereGeometry args={[0.8, 32, 32]} />
+                <meshStandardMaterial 
+                  color="white" 
+                  roughness={0.2}
+                  metalness={0.1}
+                />
+              </mesh>
+            </group>
+          );
+        case 'cloudy':
+          return (
+            <group ref={meshRef}>
+              {[0, 0.8, -0.8].map((x, i) => (
+                <mesh key={i} position={[x, Math.sin(i) * 0.3, 0]}>
+                  <sphereGeometry args={[0.7, 32, 32]} />
+                  <meshStandardMaterial 
+                    color="white" 
+                    roughness={0.2}
+                    metalness={0.1}
+                  />
+                </mesh>
+              ))}
+            </group>
+          );
+        case 'rainy':
+        case 'drizzle':
+          return (
+            <group ref={meshRef}>
+              <mesh position={[0, 0.3, 0]}>
+                <sphereGeometry args={[0.7, 32, 32]} />
+                <meshStandardMaterial 
+                  color="white" 
+                  roughness={0.2}
+                  metalness={0.1}
+                />
+              </mesh>
+              {[0, 0.4, -0.4].map((x, i) => (
+                <mesh key={i} position={[x, -0.5, 0]} rotation={[0.5, 0, 0]}>
+                  <cylinderGeometry args={[0.05, 0.05, 0.7, 16]} />
+                  <meshStandardMaterial 
+                    color="#88ccff" 
+                    roughness={0.1}
+                    metalness={0.8}
+                    transparent
+                    opacity={0.8}
+                  />
+                </mesh>
+              ))}
+            </group>
+          );
+        case 'thunderstorm':
+          return (
+            <group ref={meshRef}>
+              <mesh position={[0, 0.3, 0]}>
+                <sphereGeometry args={[0.7, 32, 32]} />
+                <meshStandardMaterial 
+                  color="#444444" 
+                  roughness={0.2}
+                  metalness={0.3}
+                />
+              </mesh>
+              <mesh position={[0, -0.5, 0]}>
+                <tetrahedronGeometry args={[0.5, 0]} />
+                <meshStandardMaterial 
+                  color="#ffff00" 
+                  emissive="#ffff00"
+                  emissiveIntensity={0.5}
+                  roughness={0.3}
+                  metalness={0.8}
+                />
+              </mesh>
+              <pointLight position={[0, -0.5, 0]} intensity={3} distance={5} color="#ffff00" />
+            </group>
+          );
+        case 'snow':
+          return (
+            <group ref={meshRef}>
+              <mesh position={[0, 0.5, 0]}>
+                <sphereGeometry args={[0.7, 32, 32]} />
+                <meshStandardMaterial 
+                  color="white" 
+                  roughness={0.2}
+                  metalness={0.1}
+                />
+              </mesh>
+              {[0, 0.4, -0.4].map((x, i) => (
+                <mesh key={i} position={[x, -0.5, 0]}>
+                  <octahedronGeometry args={[0.2, 0]} />
+                  <meshStandardMaterial 
+                    color="white" 
+                    roughness={0.1}
+                    metalness={0.2}
+                  />
+                </mesh>
+              ))}
+            </group>
+          );
+        default:
+          return (
+            <mesh ref={meshRef}>
+              <sphereGeometry args={[1, 32, 32]} />
+              <meshStandardMaterial 
+                color="#88ccff" 
+                roughness={0.3}
+                metalness={0.5}
+              />
+            </mesh>
+          );
+      }
     };
     
-    window.addEventListener('mousemove', handleMouseMove);
-    
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, []);
+    return (
+      <>
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[5, 5, 5]} intensity={1} />
+        {renderWeatherModel()}
+      </>
+    );
+  };
   
   return (
-    <div 
+    <motion.div 
       ref={cardRef}
-      className="liquid-glass liquid-card weather-card current-weather-card"
+      className="liquid-glass liquid-card weather-card current-weather-card liquid-3d"
       style={{
         '--card-highlight-x': 'calc(var(--mouse-x, 0.5) * 100%)',
         '--card-highlight-y': 'calc(var(--mouse-y, 0.5) * 100%)'
+      }}
+      animate={{
+        rotateX: rotation.x,
+        rotateY: rotation.y
+      }}
+      transition={{
+        type: "spring",
+        stiffness: 300,
+        damping: 30
       }}
     >
       {/* 动态高光效果 */}
@@ -105,15 +297,25 @@ const CurrentWeatherCard = () => {
       </div>
       
       <div className="liquid-card-content flex flex-col items-center py-6">
-        {/* 天气图标 - 添加浮动动画 */}
-        <div className="weather-icon text-7xl mb-4">
-          {getWeatherIcon(weather.condition)}
+        {/* 3D天气图标 */}
+        <div className="weather-icon-3d mb-4" style={{ width: '120px', height: '120px' }}>
+          <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
+            <WeatherIcon />
+          </Canvas>
         </div>
         
         {/* 温度 - 添加发光效果 */}
-        <div className="temperature-value mb-2">
+        <motion.div 
+          className="temperature-value mb-2"
+          animate={{ scale: [1, 1.05, 1] }}
+          transition={{ 
+            repeat: Infinity, 
+            duration: 3,
+            ease: "easeInOut"
+          }}
+        >
           {weather.temperature}°
-        </div>
+        </motion.div>
         
         {/* 天气状况 */}
         <div className="text-white/80 mb-4 text-xl">
@@ -138,6 +340,8 @@ const CurrentWeatherCard = () => {
         .current-weather-card {
           position: relative;
           overflow: hidden;
+          transform-style: preserve-3d;
+          perspective: 1000px;
         }
         
         .card-highlight {
@@ -168,11 +372,6 @@ const CurrentWeatherCard = () => {
           background-clip: text;
           -webkit-text-fill-color: transparent;
           text-shadow: 0 2px 10px rgba(255,255,255,0.3);
-          animation: pulse 2s infinite alternate ease-in-out;
-        }
-        
-        .weather-icon {
-          animation: float 3s ease-in-out infinite;
         }
         
         .raindrop-on-card {
@@ -182,52 +381,9 @@ const CurrentWeatherCard = () => {
           box-shadow: 0 0 5px rgba(255,255,255,0.5);
           transition: transform 1s ease, opacity 1s ease;
         }
-        
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
-        
-        @keyframes pulse {
-          0% {
-            opacity: 0.9;
-          }
-          100% {
-            opacity: 1;
-          }
-        }
       `}</style>
-    </div>
+    </motion.div>
   );
 };
-
-// 根据天气状况返回对应的图标
-function getWeatherIcon(condition) {
-  switch(condition) {
-    case 'sunny':
-    case 'clear':
-      return '☀️';
-    case 'partly-cloudy':
-      return '⛅';
-    case 'cloudy':
-      return '☁️';
-    case 'rainy':
-      return '🌧️';
-    case 'drizzle':
-      return '🌦️';
-    case 'thunderstorm':
-      return '⛈️';
-    case 'snow':
-      return '❄️';
-    case 'fog':
-      return '🌫️';
-    default:
-      return '🌤️';
-  }
-}
 
 export default CurrentWeatherCard;

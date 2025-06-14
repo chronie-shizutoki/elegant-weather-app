@@ -1,79 +1,84 @@
+import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Canvas } from '@react-three/fiber';
+import { Suspense } from 'react';
+
+// 导入上下文提供者
+import { ThemeProvider } from './contexts/ThemeContext';
+import { LangProvider } from './contexts/LangContext';
+import { WeatherProvider } from './contexts/WeatherContext';
+
+// 导入布局组件
+import AppContainer from './components/layout/AppContainer';
+import PageLayout from './components/layout/PageLayout';
+
+// 导入页面组件
+import HomePage from './pages/HomePage';
+import ForecastPage from './pages/ForecastPage';
+import CitiesPage from './pages/CitiesPage';
+import SettingsPage from './pages/SettingsPage';
+
+// 导入3D背景组件
+import WeatherBackground from './components/weather/WeatherBackground';
+
+// 导入样式
 import './App.css';
+import './styles/liquid-glass.css';
 
 function App() {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 p-4">
-      <div className="max-w-md mx-auto">
-        <h1 className="text-3xl font-bold text-white text-center mb-8">
-          优雅天气
-        </h1>
-        
-        <div className="bg-white/20 backdrop-blur-lg rounded-3xl p-6 mb-6 border border-white/30">
-          <div className="text-center">
-            <div className="text-6xl mb-4">🌤️</div>
-            <div className="text-4xl font-bold text-white mb-2">26°</div>
-            <div className="text-white/80 mb-4">多云</div>
-            <div className="flex justify-between text-white/60 text-sm">
-              <span>最高 32°</span>
-              <span>最低 24°</span>
-            </div>
-          </div>
-        </div>
+  const [isLoading, setIsLoading] = useState(true);
 
-        <div className="bg-white/20 backdrop-blur-lg rounded-3xl p-6 mb-6 border border-white/30">
-          <h3 className="text-white font-semibold mb-4">小时预报</h3>
-          <div className="flex space-x-4 overflow-x-auto">
-            {[
-              { time: '现在', icon: '🌤️', temp: '26°' },
-              { time: '17:00', icon: '☀️', temp: '27°' },
-              { time: '18:00', icon: '🌅', temp: '25°' },
-              { time: '19:00', icon: '🌙', temp: '24°' }
-            ].map((item, index) => (
-              <div key={index} className="flex-shrink-0 text-center">
-                <div className="text-white/60 text-sm mb-2">{item.time}</div>
-                <div className="text-2xl mb-2">{item.icon}</div>
-                <div className="text-white font-semibold">{item.temp}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+  // 模拟加载过程
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
 
-        <div className="bg-white/20 backdrop-blur-lg rounded-3xl p-6 border border-white/30">
-          <h3 className="text-white font-semibold mb-4">天气详情</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              { label: '湿度', value: '65%', icon: '💧' },
-              { label: '风速', value: '12 km/h', icon: '💨' },
-              { label: '能见度', value: '10 km', icon: '👁️' },
-              { label: '气压', value: '1013 hPa', icon: '🌡️' }
-            ].map((item, index) => (
-              <div key={index} className="text-center">
-                <div className="text-2xl mb-2">{item.icon}</div>
-                <div className="text-white/60 text-sm">{item.label}</div>
-                <div className="text-white font-semibold">{item.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+    return () => clearTimeout(timer);
+  }, []);
 
-        <div className="flex justify-center space-x-8 mt-8">
-          <button className="text-white/60 hover:text-white transition-colors">
-            🏠 天气
-          </button>
-          <button className="text-white/60 hover:text-white transition-colors">
-            📊 预报
-          </button>
-          <button className="text-white/60 hover:text-white transition-colors">
-            🌍 城市
-          </button>
-          <button className="text-white/60 hover:text-white transition-colors">
-            ⚙️ 设置
-          </button>
+  if (isLoading) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-container">
+          <div className="loading-icon">🌤️</div>
+          <div className="loading-text">加载中...</div>
         </div>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <Router>
+      <ThemeProvider>
+        <LangProvider>
+          <WeatherProvider>
+            <AppContainer>
+              {/* 3D渲染层 - 使用React Three Fiber */}
+              <div className="three-container">
+                <Canvas shadows camera={{ position: [0, 0, 10], fov: 50 }}>
+                  <Suspense fallback={null}>
+                    <WeatherBackground />
+                  </Suspense>
+                </Canvas>
+              </div>
+              
+              {/* 页面内容层 */}
+              <PageLayout>
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/forecast" element={<ForecastPage />} />
+                  <Route path="/cities" element={<CitiesPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </PageLayout>
+            </AppContainer>
+          </WeatherProvider>
+        </LangProvider>
+      </ThemeProvider>
+    </Router>
   );
 }
 
 export default App;
-
