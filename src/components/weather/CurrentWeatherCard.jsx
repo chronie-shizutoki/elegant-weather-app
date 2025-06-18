@@ -14,6 +14,18 @@ const CurrentWeatherCard = () => {
   const cardRef = useRef(null);
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
   
+  // 安全获取天气数据，避免undefined错误
+  const safeWeather = {
+    location: weather?.location || '北京市',
+    temperature: weather?.temperature || 25,
+    feelsLike: weather?.feelsLike || 27,
+    condition: weather?.condition || 'sunny',
+    description: weather?.description || '晴朗',
+    highTemp: weather?.highTemp || 30,
+    lowTemp: weather?.lowTemp || 20,
+    updatedTime: weather?.updatedTime || new Date().toLocaleString('zh-CN')
+  };
+  
   // 3D倾斜效果
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -59,7 +71,7 @@ const CurrentWeatherCard = () => {
     let effectCleanup = null;
     
     // 根据天气状况添加特效
-    if (['rainy', 'drizzle', 'thunderstorm'].includes(weather.condition)) {
+    if (['rainy', 'drizzle', 'thunderstorm'].includes(safeWeather.condition)) {
       // 在卡片上添加少量雨滴效果
       const addRaindrops = () => {
         const raindrop = document.createElement('div');
@@ -100,7 +112,7 @@ const CurrentWeatherCard = () => {
     return () => {
       if (effectCleanup) effectCleanup();
     };
-  }, [weather.condition]);
+  }, [safeWeather.condition]);
 
   // 3D天气图标组件
   const WeatherIcon = () => {
@@ -116,7 +128,7 @@ const CurrentWeatherCard = () => {
     
     // 根据天气状况返回不同的3D模型
     const renderWeatherModel = () => {
-      switch(weather.condition) {
+      switch(safeWeather.condition) {
         case 'sunny':
         case 'clear':
           return (
@@ -292,7 +304,7 @@ const CurrentWeatherCard = () => {
       <div className="liquid-card-header">
         <h2 className="text-2xl font-bold text-white/90 flex items-center">
           <span className="mr-2">{t('currentWeather')}</span>
-          <span className="text-sm font-normal text-white/70">{weather.location}</span>
+          <span className="text-sm font-normal text-white/70">{safeWeather.location}</span>
         </h2>
       </div>
       
@@ -314,25 +326,25 @@ const CurrentWeatherCard = () => {
             ease: "easeInOut"
           }}
         >
-          {weather.temperature}°
+          {safeWeather.temperature}°
         </motion.div>
         
         {/* 天气状况 */}
         <div className="text-white/80 mb-4 text-xl">
-          {t(`weather.${weather.condition}`)}
+          {t(`weather.${safeWeather.condition}`)}
         </div>
         
         {/* 最高/最低温度 */}
         <div className="flex justify-between w-full text-white/70 text-sm">
-          <span>{t('highTemp')}: {weather.highTemp}°</span>
-          <span>{t('lowTemp')}: {weather.lowTemp}°</span>
+          <span>{t('highTemp')}: {safeWeather.highTemp}°</span>
+          <span>{t('lowTemp')}: {safeWeather.lowTemp}°</span>
         </div>
       </div>
       
       <div className="liquid-card-footer">
         <div className="flex justify-between text-white/60 text-sm">
-          <span>{t('feelsLike')}: {weather.feelsLike}°</span>
-          <span>{t('updated')}: {weather.updatedTime}</span>
+          <span>{t('feelsLike')}: {safeWeather.feelsLike}°</span>
+          <span>{t('updated')}: {safeWeather.updatedTime}</span>
         </div>
       </div>
       

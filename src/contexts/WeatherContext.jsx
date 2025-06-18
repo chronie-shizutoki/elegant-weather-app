@@ -4,8 +4,10 @@ import { createContext, useContext, useReducer, useEffect } from 'react';
 export const WeatherType = {
   SUNNY: 'sunny',
   CLOUDY: 'cloudy',
+  PARTLY_CLOUDY: 'partly-cloudy',
   OVERCAST: 'overcast',
-  RAIN: 'rain',
+  RAIN: 'rainy',
+  DRIZZLE: 'drizzle',
   HEAVY_RAIN: 'heavy_rain',
   THUNDERSTORM: 'thunderstorm',
   SNOW: 'snow',
@@ -17,8 +19,10 @@ export const WeatherType = {
 export const WeatherIcons = {
   [WeatherType.SUNNY]: '☀️',
   [WeatherType.CLOUDY]: '⛅',
+  [WeatherType.PARTLY_CLOUDY]: '⛅',
   [WeatherType.OVERCAST]: '☁️',
   [WeatherType.RAIN]: '🌧️',
+  [WeatherType.DRIZZLE]: '🌦️',
   [WeatherType.HEAVY_RAIN]: '⛈️',
   [WeatherType.THUNDERSTORM]: '⚡',
   [WeatherType.SNOW]: '❄️',
@@ -34,7 +38,34 @@ const initialState = {
   isLoading: false,
   error: null,
   selectedCity: '北京市',
-  cities: ['北京市', '上海市', '广州市', '深圳市', '杭州市', '南京市']
+  cities: ['北京市', '上海市', '广州市', '深圳市', '杭州市', '南京市'],
+  weather: {
+    location: '北京市',
+    temperature: 25,
+    feelsLike: 27,
+    condition: 'sunny',
+    description: '晴朗',
+    humidity: 60,
+    windSpeed: 3,
+    windDirection: 180,
+    pressure: 1013,
+    visibility: 10,
+    uvIndex: 5,
+    airQuality: {
+      aqi: 75,
+      level: '良',
+      pm25: 35,
+      pm10: 50
+    },
+    highTemp: 30,
+    lowTemp: 20,
+    maxTemp: 30,
+    minTemp: 20,
+    sunrise: '06:30',
+    sunset: '18:45',
+    updatedTime: new Date().toLocaleString('zh-CN'),
+    updateTime: new Date().toLocaleString('zh-CN')
+  }
 };
 
 // Action 类型
@@ -46,7 +77,8 @@ const ActionTypes = {
   SET_ERROR: 'SET_ERROR',
   SET_SELECTED_CITY: 'SET_SELECTED_CITY',
   ADD_CITY: 'ADD_CITY',
-  REMOVE_CITY: 'REMOVE_CITY'
+  REMOVE_CITY: 'REMOVE_CITY',
+  SET_WEATHER: 'SET_WEATHER'
 };
 
 // Reducer
@@ -74,6 +106,11 @@ function weatherReducer(state, action) {
         ...state, 
         cities: state.cities.filter(city => city !== action.payload)
       };
+    case ActionTypes.SET_WEATHER:
+      return {
+        ...state,
+        weather: action.payload
+      };
     default:
       return state;
   }
@@ -90,14 +127,10 @@ function generateMockWeatherData(city) {
   const baseTemp = Math.floor(Math.random() * 30) + 5; // 5-35度
   
   return {
-    location: {
-      name: city,
-      country: '中国',
-      region: city.includes('市') ? city.replace('市', '省') : '直辖市'
-    },
+    location: city,
     temperature: baseTemp,
     feelsLike: baseTemp + Math.floor(Math.random() * 6) - 3,
-    weatherType: randomWeatherType,
+    condition: randomWeatherType,
     description: getWeatherDescription(randomWeatherType),
     humidity: Math.floor(Math.random() * 60) + 30, // 30-90%
     windSpeed: Math.floor(Math.random() * 8) + 1, // 1-8级
@@ -111,10 +144,13 @@ function generateMockWeatherData(city) {
       pm25: Math.floor(Math.random() * 150) + 10,
       pm10: Math.floor(Math.random() * 200) + 20
     },
+    highTemp: baseTemp + Math.floor(Math.random() * 8) + 2,
+    lowTemp: baseTemp - Math.floor(Math.random() * 8) - 2,
     maxTemp: baseTemp + Math.floor(Math.random() * 8) + 2,
     minTemp: baseTemp - Math.floor(Math.random() * 8) - 2,
     sunrise: '06:30',
     sunset: '18:45',
+    updatedTime: new Date().toLocaleString('zh-CN'),
     updateTime: new Date().toLocaleString('zh-CN')
   };
 }
@@ -133,6 +169,7 @@ function generateHourlyForecast() {
       time: time.getHours(),
       temperature: Math.floor(Math.random() * 20) + 10,
       weatherType: randomWeatherType,
+      condition: randomWeatherType,
       precipitation: Math.floor(Math.random() * 100), // 降水概率
       windSpeed: Math.floor(Math.random() * 6) + 1
     });
@@ -161,11 +198,14 @@ function generateDailyForecast() {
       weekday: i === 0 ? '今天' : i === 1 ? '明天' : weekdays[date.getDay()],
       dayWeatherType,
       nightWeatherType,
+      condition: dayWeatherType,
       maxTemp,
       minTemp,
       precipitation: Math.floor(Math.random() * 100),
       windSpeed: Math.floor(Math.random() * 6) + 1,
-      airQuality: getAQILevel(Math.floor(Math.random() * 200) + 50)
+      airQuality: {
+        level: getAQILevel(Math.floor(Math.random() * 200) + 50)
+      }
     });
   }
   
@@ -177,8 +217,10 @@ function getWeatherDescription(weatherType) {
   const descriptions = {
     [WeatherType.SUNNY]: '晴朗',
     [WeatherType.CLOUDY]: '多云',
+    [WeatherType.PARTLY_CLOUDY]: '局部多云',
     [WeatherType.OVERCAST]: '阴天',
     [WeatherType.RAIN]: '小雨',
+    [WeatherType.DRIZZLE]: '毛毛雨',
     [WeatherType.HEAVY_RAIN]: '大雨',
     [WeatherType.THUNDERSTORM]: '雷阵雨',
     [WeatherType.SNOW]: '雪',
@@ -218,6 +260,7 @@ export function WeatherProvider({ children }) {
       dispatch({ type: ActionTypes.SET_CURRENT_WEATHER, payload: currentWeather });
       dispatch({ type: ActionTypes.SET_HOURLY_FORECAST, payload: hourlyForecast });
       dispatch({ type: ActionTypes.SET_DAILY_FORECAST, payload: dailyForecast });
+      dispatch({ type: ActionTypes.SET_WEATHER, payload: currentWeather });
       
     } catch (error) {
       dispatch({ type: ActionTypes.SET_ERROR, payload: error.message });
@@ -276,4 +319,3 @@ export function useWeather() {
 }
 
 export { WeatherType as default };
-

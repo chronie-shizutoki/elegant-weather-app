@@ -60,7 +60,7 @@ const resources = {
         veryHigh: '很高',
         extreme: '极高'
       },
-      pressure: {
+      pressureInfo: {
         high: '高压',
         low: '低压'
       }
@@ -121,7 +121,7 @@ const resources = {
         veryHigh: '很高',
         extreme: '極高'
       },
-      pressure: {
+      pressureInfo: {
         high: '高壓',
         low: '低壓'
       }
@@ -182,7 +182,7 @@ const resources = {
         veryHigh: 'Very High',
         extreme: 'Extreme'
       },
-      pressure: {
+      pressureInfo: {
         high: 'High',
         low: 'Low'
       }
@@ -243,7 +243,7 @@ const resources = {
         veryHigh: '非常に高い',
         extreme: '極めて高い'
       },
-      pressure: {
+      pressureInfo: {
         high: '高気圧',
         low: '低気圧'
       }
@@ -304,7 +304,7 @@ const resources = {
         veryHigh: '매우 높음',
         extreme: '극도로 높음'
       },
-      pressure: {
+      pressureInfo: {
         high: '고기압',
         low: '저기압'
       }
@@ -365,7 +365,7 @@ const resources = {
         veryHigh: 'Très Élevé',
         extreme: 'Extrême'
       },
-      pressure: {
+      pressureInfo: {
         high: 'Haute Pression',
         low: 'Basse Pression'
       }

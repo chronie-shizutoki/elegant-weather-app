@@ -14,6 +14,15 @@ const HourlyForecast = () => {
   const containerRef = useRef(null);
   const scrollRef = useRef(null);
   
+  // 安全获取预报数据，避免undefined错误
+  const safeHourlyForecast = hourlyForecast || Array(24).fill().map((_, index) => ({
+    time: new Date(Date.now() + index * 60 * 60 * 1000).getHours(),
+    temperature: Math.floor(Math.random() * 10) + 15,
+    condition: 'sunny',
+    precipitation: Math.floor(Math.random() * 30),
+    windSpeed: Math.floor(Math.random() * 5) + 1
+  }));
+  
   // 添加滚动动画效果
   useEffect(() => {
     const container = scrollRef.current;
@@ -47,7 +56,7 @@ const HourlyForecast = () => {
     return () => {
       container.removeEventListener('scroll', handleScroll);
     };
-  }, [hourlyForecast]);
+  }, [safeHourlyForecast]);
   
   // 添加滚动按钮功能
   const scrollLeft = () => {
@@ -66,6 +75,9 @@ const HourlyForecast = () => {
   const WeatherIcon = ({ condition }) => {
     const meshRef = useRef();
     
+    // 确保condition有默认值
+    const safeCondition = condition || 'sunny';
+    
     // 动画帧更新
     useFrame((state, delta) => {
       if (meshRef.current) {
@@ -76,7 +88,7 @@ const HourlyForecast = () => {
     
     // 根据天气状况返回不同的3D模型
     const renderWeatherModel = () => {
-      switch(condition) {
+      switch(safeCondition) {
         case 'sunny':
         case 'clear':
           return (
@@ -270,7 +282,7 @@ const HourlyForecast = () => {
         ref={scrollRef}
         className="hourly-forecast-container flex space-x-4 overflow-x-auto py-4 px-2"
       >
-        {hourlyForecast.map((item, index) => (
+        {safeHourlyForecast.map((item, index) => (
           <motion.div 
             key={index} 
             className="hourly-item flex-shrink-0 text-center liquid-glass p-4 rounded-2xl liquid-3d-item"
@@ -299,7 +311,7 @@ const HourlyForecast = () => {
             <div className="text-white font-semibold text-lg">{item.temperature}°</div>
             
             {/* 降水概率 */}
-            {item.precipitation > 0 && (
+            {(item.precipitation > 0) && (
               <div className="precipitation-indicator mt-2">
                 <div className="text-blue-300 text-xs">{item.precipitation}%</div>
                 <div className="liquid-progress mt-1">

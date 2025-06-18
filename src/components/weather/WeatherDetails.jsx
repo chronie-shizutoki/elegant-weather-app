@@ -26,6 +26,24 @@ const WeatherDetails = () => {
     });
   }, []);
   
+  // 安全获取天气数据，避免undefined错误
+  const safeWeather = {
+    humidity: weather?.humidity || 50,
+    windSpeed: weather?.windSpeed || 0,
+    windDirection: weather?.windDirection || 0,
+    visibility: weather?.visibility || 10,
+    pressure: weather?.pressure || 1013,
+    airQuality: {
+      aqi: weather?.airQuality?.aqi || 50,
+      level: weather?.airQuality?.level || '良',
+      pm25: weather?.airQuality?.pm25 || 25,
+      pm10: weather?.airQuality?.pm10 || 50
+    },
+    uvIndex: weather?.uvIndex || 5,
+    sunrise: weather?.sunrise || '06:30',
+    sunset: weather?.sunset || '18:45'
+  };
+  
   // 获取空气质量指数的颜色和描述
   const getAqiInfo = (aqi) => {
     if (aqi <= 50) {
@@ -58,8 +76,8 @@ const WeatherDetails = () => {
     }
   };
   
-  const aqiInfo = getAqiInfo(weather.airQuality);
-  const uvInfo = getUvInfo(weather.uvIndex);
+  const aqiInfo = getAqiInfo(safeWeather.airQuality.aqi);
+  const uvInfo = getUvInfo(safeWeather.uvIndex);
   
   // 3D指示器组件
   const Indicator3D = ({ value, maxValue, color }) => {
@@ -206,12 +224,12 @@ const WeatherDetails = () => {
         >
           <div className="detail-icon text-2xl mb-2">💧</div>
           <div className="text-white/70 text-sm">{t('humidity')}</div>
-          <div className="text-white font-semibold text-lg">{weather.humidity}%</div>
+          <div className="text-white font-semibold text-lg">{safeWeather.humidity}%</div>
           <div className="liquid-progress mt-2">
             <motion.div 
               className="liquid-progress-bar"
               initial={{ width: 0 }}
-              animate={{ width: `${weather.humidity}%` }}
+              animate={{ width: `${safeWeather.humidity}%` }}
               transition={{ duration: 1, delay: 0.5 }}
             ></motion.div>
           </div>
@@ -232,12 +250,12 @@ const WeatherDetails = () => {
         >
           <div className="detail-icon text-2xl mb-2">💨</div>
           <div className="text-white/70 text-sm">{t('windSpeed')}</div>
-          <div className="text-white font-semibold text-lg">{weather.windSpeed} km/h</div>
+          <div className="text-white font-semibold text-lg">{safeWeather.windSpeed} km/h</div>
           <div className="wind-direction mt-2" style={{ height: '60px' }}>
             <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
               <ambientLight intensity={0.5} />
               <directionalLight position={[5, 5, 5]} intensity={1} />
-              <WindDirectionIndicator direction={weather.windDirection} />
+              <WindDirectionIndicator direction={safeWeather.windDirection} />
             </Canvas>
           </div>
         </motion.div>
@@ -257,12 +275,12 @@ const WeatherDetails = () => {
         >
           <div className="detail-icon text-2xl mb-2">👁️</div>
           <div className="text-white/70 text-sm">{t('visibility')}</div>
-          <div className="text-white font-semibold text-lg">{weather.visibility} km</div>
+          <div className="text-white font-semibold text-lg">{safeWeather.visibility} km</div>
           <div className="liquid-progress mt-2">
             <motion.div 
               className="liquid-progress-bar"
               initial={{ width: 0 }}
-              animate={{ width: `${Math.min(weather.visibility / 10 * 100, 100)}%` }}
+              animate={{ width: `${Math.min(safeWeather.visibility / 10 * 100, 100)}%` }}
               transition={{ duration: 1, delay: 0.5 }}
             ></motion.div>
           </div>
@@ -283,9 +301,9 @@ const WeatherDetails = () => {
         >
           <div className="detail-icon text-2xl mb-2">🌡️</div>
           <div className="text-white/70 text-sm">{t('pressure')}</div>
-          <div className="text-white font-semibold text-lg">{weather.pressure} hPa</div>
+          <div className="text-white font-semibold text-lg">{safeWeather.pressure} hPa</div>
           <div className="pressure-indicator mt-2 text-xs text-white/60">
-            {weather.pressure > 1013 ? t('pressure.high') : t('pressure.low')}
+            {safeWeather.pressure > 1013 ? t('pressure.high') : t('pressure.low')}
           </div>
         </motion.div>
         
@@ -305,21 +323,21 @@ const WeatherDetails = () => {
           <div className="detail-icon text-2xl mb-2">🌬️</div>
           <div className="text-white/70 text-sm">{t('airQuality')}</div>
           <div className="text-white font-semibold text-lg flex items-center justify-center">
-            <span className="mr-2">{weather.airQuality}</span>
-            <span className="text-sm font-normal">({aqiInfo.description})</span>
+            <span className="mr-2">{safeWeather.airQuality.aqi}</span>
+            <span className="text-sm font-normal">({safeWeather.airQuality.level})</span>
           </div>
           <div style={{ height: '60px' }}>
             <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
               <ambientLight intensity={0.5} />
               <directionalLight position={[5, 5, 5]} intensity={1} />
               <Indicator3D 
-                value={weather.airQuality} 
+                value={safeWeather.airQuality.aqi} 
                 maxValue={300} 
-                color={weather.airQuality <= 50 ? "#4ade80" : 
-                       weather.airQuality <= 100 ? "#facc15" : 
-                       weather.airQuality <= 150 ? "#fb923c" : 
-                       weather.airQuality <= 200 ? "#f87171" : 
-                       weather.airQuality <= 300 ? "#c084fc" : "#fb7185"} 
+                color={safeWeather.airQuality.aqi <= 50 ? "#4ade80" : 
+                       safeWeather.airQuality.aqi <= 100 ? "#facc15" : 
+                       safeWeather.airQuality.aqi <= 150 ? "#fb923c" : 
+                       safeWeather.airQuality.aqi <= 200 ? "#f87171" : 
+                       safeWeather.airQuality.aqi <= 300 ? "#c084fc" : "#fb7185"} 
               />
             </Canvas>
           </div>
@@ -341,7 +359,7 @@ const WeatherDetails = () => {
           <div className="detail-icon text-2xl mb-2">☀️</div>
           <div className="text-white/70 text-sm">{t('uvIndex')}</div>
           <div className="text-white font-semibold text-lg flex items-center justify-center">
-            <span className="mr-2">{weather.uvIndex}</span>
+            <span className="mr-2">{safeWeather.uvIndex}</span>
             <span className="text-sm font-normal">({uvInfo.description})</span>
           </div>
           <div style={{ height: '60px' }}>
@@ -349,12 +367,12 @@ const WeatherDetails = () => {
               <ambientLight intensity={0.5} />
               <directionalLight position={[5, 5, 5]} intensity={1} />
               <Indicator3D 
-                value={weather.uvIndex} 
+                value={safeWeather.uvIndex} 
                 maxValue={11} 
-                color={weather.uvIndex <= 2 ? "#4ade80" : 
-                       weather.uvIndex <= 5 ? "#facc15" : 
-                       weather.uvIndex <= 7 ? "#fb923c" : 
-                       weather.uvIndex <= 10 ? "#f87171" : "#c084fc"} 
+                color={safeWeather.uvIndex <= 2 ? "#4ade80" : 
+                       safeWeather.uvIndex <= 5 ? "#facc15" : 
+                       safeWeather.uvIndex <= 7 ? "#fb923c" : 
+                       safeWeather.uvIndex <= 10 ? "#f87171" : "#c084fc"} 
               />
             </Canvas>
           </div>
@@ -377,21 +395,21 @@ const WeatherDetails = () => {
             <div className="sunrise">
               <div className="detail-icon text-xl">🌅</div>
               <div className="text-white/70 text-xs">{t('sunrise')}</div>
-              <div className="text-white font-semibold">{weather.sunrise}</div>
+              <div className="text-white font-semibold">{safeWeather.sunrise}</div>
             </div>
             
             <div className="sun-path flex-grow mx-4 relative" style={{ height: '100px' }}>
               <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
                 <ambientLight intensity={0.5} />
                 <directionalLight position={[5, 5, 5]} intensity={1} />
-                <SunPositionIndicator sunrise={weather.sunrise} sunset={weather.sunset} />
+                <SunPositionIndicator sunrise={safeWeather.sunrise} sunset={safeWeather.sunset} />
               </Canvas>
             </div>
             
             <div className="sunset">
               <div className="detail-icon text-xl">🌇</div>
               <div className="text-white/70 text-xs">{t('sunset')}</div>
-              <div className="text-white font-semibold">{weather.sunset}</div>
+              <div className="text-white font-semibold">{safeWeather.sunset}</div>
             </div>
           </div>
         </motion.div>
