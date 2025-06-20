@@ -1,244 +1,119 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { useWeather } from '../../contexts/WeatherContext';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import * as THREE from 'three';
-import { Canvas, useFrame } from '@react-three/fiber';
 
 /**
- * 小时预报组件 - 使用液体玻璃效果和3D动画展示未来24小时天气预报
+ * 小时预报组件 - 性能优化版本
+ * 移除多个Canvas以避免WebGL上下文泄漏，优化滚动事件处理
  */
 const HourlyForecast = () => {
   const { hourlyForecast } = useWeather();
   const { t } = useTranslation();
   const containerRef = useRef(null);
   const scrollRef = useRef(null);
+  const lastScrollTime = useRef(0);
+  const scrollAnimationFrame = useRef(null);
   
   // 安全获取预报数据，避免undefined错误
-  const safeHourlyForecast = hourlyForecast || Array(24).fill().map((_, index) => ({
-    time: new Date(Date.now() + index * 60 * 60 * 1000).getHours(),
-    temperature: Math.floor(Math.random() * 10) + 15,
-    condition: 'sunny',
-    precipitation: Math.floor(Math.random() * 30),
-    windSpeed: Math.floor(Math.random() * 5) + 1
-  }));
+  const safeHourlyForecast = useMemo(() => {
+    return hourlyForecast || Array(24).fill().map((_, index) => ({
+      time: new Date(Date.now() + index * 60 * 60 * 1000).getHours(),
+      temperature: Math.floor(Math.random() * 10) + 15,
+      condition: 'sunny',
+      precipitation: Math.floor(Math.random() * 30),
+      windSpeed: Math.floor(Math.random() * 5) + 1
+    }));
+  }, [hourlyForecast]);
   
-  // 添加滚动动画效果
+  // 性能优化：节流的滚动处理
+  const throttledScrollHandler = useCallback(() => {
+    const now = performance.now();
+    if (now - lastScrollTime.current < 16) { // 限制为60fps
+      return;
+    }
+    lastScrollTime.current = now;
+    
+    const container = scrollRef.current;
+    if (!container) return;
+    
+    // 使用requestAnimationFrame来更新样式，避免阻塞主线程
+    if (scrollAnimationFrame.current) {
+      cancelAnimationFrame(scrollAnimationFrame.current);
+    }
+    
+    scrollAnimationFrame.current = requestAnimationFrame(() => {
+      const items = container.querySelectorAll('.hourly-item');
+      const containerRect = container.getBoundingClientRect();
+      const centerPosition = containerRect.left + containerRect.width / 2;
+      
+      items.forEach((item) => {
+        const rect = item.getBoundingClientRect();
+        const itemCenter = rect.left + rect.width / 2;
+        const distance = Math.abs(centerPosition - itemCenter);
+        const maxDistance = containerRect.width / 2;
+        
+        // 简化计算，减少性能开销
+        const normalizedDistance = Math.min(distance / maxDistance, 1);
+        const scale = 0.9 + (1 - normalizedDistance) * 0.1;
+        const opacity = 0.7 + (1 - normalizedDistance) * 0.3;
+        
+        // 批量更新样式
+        item.style.cssText = `
+          transform: scale(${scale.toFixed(2)});
+          opacity: ${opacity.toFixed(2)};
+          transition: transform 0.2s ease, opacity 0.2s ease;
+        `;
+      });
+    });
+  }, []);
+  
+  // 优化的滚动效果
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
     
-    // 滚动时添加视差效果
-    const handleScroll = () => {
-      const items = container.querySelectorAll('.hourly-item');
-      items.forEach((item, index) => {
-        const rect = item.getBoundingClientRect();
-        const centerPosition = window.innerWidth / 2;
-        const itemCenter = rect.left + rect.width / 2;
-        const distance = Math.abs(centerPosition - itemCenter);
-        const maxDistance = window.innerWidth / 2;
-        
-        // 计算基于距离的缩放和透明度
-        const scale = Math.max(0.85, 1 - (distance / maxDistance) * 0.15);
-        const opacity = Math.max(0.7, 1 - (distance / maxDistance) * 0.3);
-        const elevation = Math.max(0, 20 - (distance / maxDistance) * 20);
-        
-        // 应用变换
-        item.style.transform = `scale(${scale}) translateZ(${elevation}px)`;
-        item.style.opacity = opacity;
-      });
-    };
-    
-    container.addEventListener('scroll', handleScroll);
+    container.addEventListener('scroll', throttledScrollHandler, { passive: true });
     // 初始触发一次
-    handleScroll();
+    throttledScrollHandler();
     
     return () => {
-      container.removeEventListener('scroll', handleScroll);
+      container.removeEventListener('scroll', throttledScrollHandler);
+      if (scrollAnimationFrame.current) {
+        cancelAnimationFrame(scrollAnimationFrame.current);
+      }
     };
-  }, [safeHourlyForecast]);
+  }, [throttledScrollHandler]);
   
-  // 添加滚动按钮功能
-  const scrollLeft = () => {
+  // 滚动按钮功能
+  const scrollLeft = useCallback(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollBy({ left: -200, behavior: 'smooth' });
     }
-  };
+  }, []);
   
-  const scrollRight = () => {
+  const scrollRight = useCallback(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollBy({ left: 200, behavior: 'smooth' });
     }
-  };
+  }, []);
   
-  // 3D天气图标组件
-  const WeatherIcon = ({ condition }) => {
-    const meshRef = useRef();
-    
-    // 确保condition有默认值
-    const safeCondition = condition || 'sunny';
-    
-    // 动画帧更新
-    useFrame((state, delta) => {
-      if (meshRef.current) {
-        meshRef.current.rotation.y += delta * 0.5;
-        meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime) * 0.2;
-      }
-    });
-    
-    // 根据天气状况返回不同的3D模型
-    const renderWeatherModel = () => {
-      switch(safeCondition) {
-        case 'sunny':
-        case 'clear':
-          return (
-            <group ref={meshRef}>
-              <mesh>
-                <sphereGeometry args={[0.7, 32, 32]} />
-                <meshStandardMaterial 
-                  color="#ffaa44" 
-                  emissive="#ffaa44"
-                  emissiveIntensity={0.5}
-                  roughness={0.3}
-                  metalness={0.8}
-                />
-              </mesh>
-              <pointLight intensity={3} distance={5} color="#ffaa44" />
-            </group>
-          );
-        case 'partly-cloudy':
-          return (
-            <group ref={meshRef}>
-              <mesh position={[0.3, 0, 0]}>
-                <sphereGeometry args={[0.5, 32, 32]} />
-                <meshStandardMaterial 
-                  color="#ffaa44" 
-                  emissive="#ffaa44"
-                  emissiveIntensity={0.3}
-                  roughness={0.3}
-                  metalness={0.8}
-                />
-              </mesh>
-              <mesh position={[-0.3, 0, 0.3]}>
-                <sphereGeometry args={[0.6, 32, 32]} />
-                <meshStandardMaterial 
-                  color="white" 
-                  roughness={0.2}
-                  metalness={0.1}
-                />
-              </mesh>
-            </group>
-          );
-        case 'cloudy':
-          return (
-            <group ref={meshRef}>
-              {[0, 0.5, -0.5].map((x, i) => (
-                <mesh key={i} position={[x, Math.sin(i) * 0.2, 0]}>
-                  <sphereGeometry args={[0.5, 32, 32]} />
-                  <meshStandardMaterial 
-                    color="white" 
-                    roughness={0.2}
-                    metalness={0.1}
-                  />
-                </mesh>
-              ))}
-            </group>
-          );
-        case 'rainy':
-        case 'drizzle':
-          return (
-            <group ref={meshRef}>
-              <mesh position={[0, 0.2, 0]}>
-                <sphereGeometry args={[0.5, 32, 32]} />
-                <meshStandardMaterial 
-                  color="white" 
-                  roughness={0.2}
-                  metalness={0.1}
-                />
-              </mesh>
-              {[0, 0.3, -0.3].map((x, i) => (
-                <mesh key={i} position={[x, -0.3, 0]} rotation={[0.5, 0, 0]}>
-                  <cylinderGeometry args={[0.03, 0.03, 0.5, 16]} />
-                  <meshStandardMaterial 
-                    color="#88ccff" 
-                    roughness={0.1}
-                    metalness={0.8}
-                    transparent
-                    opacity={0.8}
-                  />
-                </mesh>
-              ))}
-            </group>
-          );
-        case 'thunderstorm':
-          return (
-            <group ref={meshRef}>
-              <mesh position={[0, 0.2, 0]}>
-                <sphereGeometry args={[0.5, 32, 32]} />
-                <meshStandardMaterial 
-                  color="#444444" 
-                  roughness={0.2}
-                  metalness={0.3}
-                />
-              </mesh>
-              <mesh position={[0, -0.3, 0]}>
-                <tetrahedronGeometry args={[0.3, 0]} />
-                <meshStandardMaterial 
-                  color="#ffff00" 
-                  emissive="#ffff00"
-                  emissiveIntensity={0.5}
-                  roughness={0.3}
-                  metalness={0.8}
-                />
-              </mesh>
-              <pointLight position={[0, -0.3, 0]} intensity={2} distance={3} color="#ffff00" />
-            </group>
-          );
-        case 'snow':
-          return (
-            <group ref={meshRef}>
-              <mesh position={[0, 0.3, 0]}>
-                <sphereGeometry args={[0.5, 32, 32]} />
-                <meshStandardMaterial 
-                  color="white" 
-                  roughness={0.2}
-                  metalness={0.1}
-                />
-              </mesh>
-              {[0, 0.3, -0.3].map((x, i) => (
-                <mesh key={i} position={[x, -0.3, 0]}>
-                  <octahedronGeometry args={[0.15, 0]} />
-                  <meshStandardMaterial 
-                    color="white" 
-                    roughness={0.1}
-                    metalness={0.2}
-                  />
-                </mesh>
-              ))}
-            </group>
-          );
-        default:
-          return (
-            <mesh ref={meshRef}>
-              <sphereGeometry args={[0.7, 32, 32]} />
-              <meshStandardMaterial 
-                color="#88ccff" 
-                roughness={0.3}
-                metalness={0.5}
-              />
-            </mesh>
-          );
-      }
+  // 性能优化：使用CSS图标代替3D Canvas
+  const getWeatherIcon = useCallback((condition) => {
+    const icons = {
+      'sunny': '☀️',
+      'clear': '🌞',
+      'partly-cloudy': '⛅',
+      'cloudy': '☁️',
+      'rainy': '🌧️',
+      'drizzle': '🌦️',
+      'thunderstorm': '⛈️',
+      'snow': '❄️',
+      'fog': '🌫️',
+      'windy': '💨'
     };
-    
-    return (
-      <>
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[5, 5, 5]} intensity={1} />
-        {renderWeatherModel()}
-      </>
-    );
-  };
+    return icons[condition] || '🌤️';
+  }, []);
   
   return (
     <motion.div 
@@ -258,7 +133,7 @@ const HourlyForecast = () => {
             className="liquid-button p-1 rounded-full"
             aria-label={t('scrollLeft')}
             whileTap={{ scale: 0.9 }}
-            whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.2)" }}
+            whileHover={{ scale: 1.05, backgroundColor: "rgba(255, 255, 255, 0.2)" }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6"></polyline>
@@ -269,7 +144,7 @@ const HourlyForecast = () => {
             className="liquid-button p-1 rounded-full"
             aria-label={t('scrollRight')}
             whileTap={{ scale: 0.9 }}
-            whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.2)" }}
+            whileHover={{ scale: 1.05, backgroundColor: "rgba(255, 255, 255, 0.2)" }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="9 18 15 12 9 6"></polyline>
@@ -289,24 +164,35 @@ const HourlyForecast = () => {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ 
-              delay: index * 0.05,
-              duration: 0.5,
+              delay: index * 0.02, // 减少延迟，加快动画
+              duration: 0.3, // 缩短动画时间
               ease: "easeOut"
             }}
             whileHover={{ 
               scale: 1.05,
-              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.2)",
-              backgroundColor: "rgba(255, 255, 255, 0.15)"
+              boxShadow: "0 8px 20px rgba(0, 0, 0, 0.15)",
+              backgroundColor: "rgba(255, 255, 255, 0.1)"
             }}
           >
-            <div className="text-white/70 text-sm mb-2">{item.time}</div>
-            
-            {/* 3D天气图标 */}
-            <div className="weather-icon-3d mb-2" style={{ width: '60px', height: '60px' }}>
-              <Canvas camera={{ position: [0, 0, 3], fov: 50 }}>
-                <WeatherIcon condition={item.condition} />
-              </Canvas>
+            <div className="text-white/70 text-sm mb-2">
+              {typeof item.time === 'number' ? `${item.time}:00` : item.time}
             </div>
+            
+            {/* 优化的天气图标 - 使用CSS动画代替3D Canvas */}
+            <motion.div 
+              className="weather-icon-emoji mb-2"
+              animate={{ 
+                scale: [1, 1.05, 1],
+                rotate: [0, 2, -2, 0]
+              }}
+              transition={{ 
+                repeat: Infinity, 
+                duration: 3 + index * 0.1, // 错开动画时间
+                ease: "easeInOut"
+              }}
+            >
+              {getWeatherIcon(item.condition)}
+            </motion.div>
             
             <div className="text-white font-semibold text-lg">{item.temperature}°</div>
             
@@ -319,7 +205,7 @@ const HourlyForecast = () => {
                     className="liquid-progress-bar"
                     initial={{ width: 0 }}
                     animate={{ width: `${item.precipitation}%` }}
-                    transition={{ duration: 1, delay: index * 0.05 + 0.5 }}
+                    transition={{ duration: 0.8, delay: index * 0.02 + 0.3 }}
                   ></motion.div>
                 </div>
               </div>
@@ -342,18 +228,38 @@ const HourlyForecast = () => {
         
         .hourly-item {
           scroll-snap-align: center;
-          transition: transform 0.3s ease, opacity 0.3s ease;
           transform-style: preserve-3d;
           min-width: 80px;
+          will-change: transform, opacity; /* 优化渲染性能 */
+        }
+        
+        .weather-icon-emoji {
+          font-size: 2rem;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
         }
         
         .precipitation-indicator {
           opacity: 0.9;
-          transition: opacity 0.3s ease;
+          transition: opacity 0.2s ease;
         }
         
         .hourly-item:hover .precipitation-indicator {
           opacity: 1;
+        }
+        
+        .liquid-progress {
+          width: 100%;
+          height: 3px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
+          overflow: hidden;
+        }
+        
+        .liquid-progress-bar {
+          height: 100%;
+          background: linear-gradient(90deg, #3b82f6, #06b6d4);
+          border-radius: 2px;
+          transition: width 0.3s ease;
         }
       `}</style>
     </motion.div>
@@ -361,3 +267,4 @@ const HourlyForecast = () => {
 };
 
 export default HourlyForecast;
+

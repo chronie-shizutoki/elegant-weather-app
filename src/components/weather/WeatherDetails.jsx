@@ -1,33 +1,19 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { useWeather } from '../../contexts/WeatherContext';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import * as THREE from 'three';
-import { Canvas, useFrame } from '@react-three/fiber';
 
 /**
- * 天气详情组件 - 使用液体玻璃效果和3D动画展示详细天气数据
+ * 天气详情组件 - 性能优化版本
+ * 移除所有Canvas以避免WebGL上下文泄漏，使用CSS动画代替3D效果
  */
 const WeatherDetails = () => {
   const { weather } = useWeather();
   const { t } = useTranslation();
   const containerRef = useRef(null);
   
-  // 添加进入动画效果
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    
-    const items = container.querySelectorAll('.weather-detail-item');
-    
-    // 为每个项目添加延迟动画
-    items.forEach((item, index) => {
-      item.style.animationDelay = `${index * 0.1}s`;
-    });
-  }, []);
-  
   // 安全获取天气数据，避免undefined错误
-  const safeWeather = {
+  const safeWeather = useMemo(() => ({
     humidity: weather?.humidity || 50,
     windSpeed: weather?.windSpeed || 0,
     windDirection: weather?.windDirection || 0,
@@ -42,10 +28,10 @@ const WeatherDetails = () => {
     uvIndex: weather?.uvIndex || 5,
     sunrise: weather?.sunrise || '06:30',
     sunset: weather?.sunset || '18:45'
-  };
+  }), [weather]);
   
   // 获取空气质量指数的颜色和描述
-  const getAqiInfo = (aqi) => {
+  const getAqiInfo = useCallback((aqi) => {
     if (aqi <= 50) {
       return { color: 'from-green-300 to-green-500', description: t('aqi.good') };
     } else if (aqi <= 100) {
@@ -59,10 +45,10 @@ const WeatherDetails = () => {
     } else {
       return { color: 'from-rose-300 to-rose-500', description: t('aqi.hazardous') };
     }
-  };
+  }, [t]);
   
   // 获取紫外线指数的颜色和描述
-  const getUvInfo = (uv) => {
+  const getUvInfo = useCallback((uv) => {
     if (uv <= 2) {
       return { color: 'from-green-300 to-green-500', description: t('uv.low') };
     } else if (uv <= 5) {
@@ -74,127 +60,29 @@ const WeatherDetails = () => {
     } else {
       return { color: 'from-purple-300 to-purple-500', description: t('uv.extreme') };
     }
-  };
+  }, [t]);
+  
+  // 计算太阳位置百分比
+  const calculateSunPosition = useCallback((sunrise, sunset) => {
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    
+    const [sunriseHour, sunriseMin] = sunrise.split(':').map(Number);
+    const [sunsetHour, sunsetMin] = sunset.split(':').map(Number);
+    
+    const sunriseTime = sunriseHour * 60 + sunriseMin;
+    const sunsetTime = sunsetHour * 60 + sunsetMin;
+    
+    if (currentTime < sunriseTime || currentTime > sunsetTime) {
+      return 0; // 夜晚
+    }
+    
+    return (currentTime - sunriseTime) / (sunsetTime - sunriseTime);
+  }, []);
   
   const aqiInfo = getAqiInfo(safeWeather.airQuality.aqi);
   const uvInfo = getUvInfo(safeWeather.uvIndex);
-  
-  // 3D指示器组件
-  const Indicator3D = ({ value, maxValue, color }) => {
-    const meshRef = useRef();
-    const percentage = Math.min(value / maxValue, 1);
-    
-    useFrame((state) => {
-      if (meshRef.current) {
-        meshRef.current.rotation.y = state.clock.elapsedTime * 0.5;
-        meshRef.current.scale.x = 0.5 + percentage * 0.5;
-        meshRef.current.scale.y = 0.5 + percentage * 0.5;
-        meshRef.current.scale.z = 0.5 + percentage * 0.5;
-      }
-    });
-    
-    return (
-      <mesh ref={meshRef}>
-        <torusGeometry args={[1, 0.3, 16, 32]} />
-        <meshStandardMaterial 
-          color={color} 
-          emissive={color}
-          emissiveIntensity={0.5}
-          roughness={0.3}
-          metalness={0.7}
-        />
-      </mesh>
-    );
-  };
-  
-  // 风向指示器组件
-  const WindDirectionIndicator = ({ direction }) => {
-    const meshRef = useRef();
-    
-    useFrame((state) => {
-      if (meshRef.current) {
-        // 平滑旋转到目标方向
-        const targetRotation = THREE.MathUtils.degToRad(direction);
-        meshRef.current.rotation.z = THREE.MathUtils.lerp(
-          meshRef.current.rotation.z,
-          targetRotation,
-          0.05
-        );
-      }
-    });
-    
-    return (
-      <group ref={meshRef}>
-        <mesh position={[0, 0.8, 0]}>
-          <coneGeometry args={[0.5, 1, 16]} />
-          <meshStandardMaterial 
-            color="#88ccff" 
-            roughness={0.3}
-            metalness={0.5}
-          />
-        </mesh>
-        <mesh position={[0, -0.5, 0]}>
-          <cylinderGeometry args={[0.1, 0.1, 1, 16]} />
-          <meshStandardMaterial 
-            color="#88ccff" 
-            roughness={0.3}
-            metalness={0.5}
-          />
-        </mesh>
-      </group>
-    );
-  };
-  
-  // 日出日落指示器组件
-  const SunPositionIndicator = ({ sunrise, sunset }) => {
-    const meshRef = useRef();
-    const sunRef = useRef();
-    const percentage = calculateSunPosition(sunrise, sunset);
-    
-    useFrame((state) => {
-      if (sunRef.current) {
-        // 计算太阳在路径上的位置
-        const angle = Math.PI * percentage;
-        const x = Math.cos(angle) * 2;
-        const y = Math.sin(angle) * 1.5;
-        
-        sunRef.current.position.x = x;
-        sunRef.current.position.y = y;
-        
-        // 添加轻微的浮动效果
-        sunRef.current.position.y += Math.sin(state.clock.elapsedTime * 2) * 0.05;
-      }
-    });
-    
-    return (
-      <group ref={meshRef}>
-        {/* 太阳路径 */}
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[2, 0.05, 16, 32, Math.PI]} />
-          <meshStandardMaterial 
-            color="#ffaa44" 
-            opacity={0.3}
-            transparent
-            roughness={0.5}
-            metalness={0.2}
-          />
-        </mesh>
-        
-        {/* 太阳 */}
-        <mesh ref={sunRef} position={[2, 0, 0]}>
-          <sphereGeometry args={[0.3, 32, 32]} />
-          <meshStandardMaterial 
-            color="#ffaa44" 
-            emissive="#ffaa44"
-            emissiveIntensity={0.5}
-            roughness={0.3}
-            metalness={0.8}
-          />
-          <pointLight intensity={2} distance={5} color="#ffaa44" />
-        </mesh>
-      </group>
-    );
-  };
+  const sunPosition = calculateSunPosition(safeWeather.sunrise, safeWeather.sunset);
   
   return (
     <motion.div 
@@ -222,12 +110,18 @@ const WeatherDetails = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1, duration: 0.5 }}
         >
-          <div className="detail-icon text-2xl mb-2">💧</div>
+          <motion.div 
+            className="detail-icon text-2xl mb-2"
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+          >
+            💧
+          </motion.div>
           <div className="text-white/70 text-sm">{t('humidity')}</div>
           <div className="text-white font-semibold text-lg">{safeWeather.humidity}%</div>
           <div className="liquid-progress mt-2">
             <motion.div 
-              className="liquid-progress-bar"
+              className="liquid-progress-bar bg-gradient-to-r from-blue-400 to-blue-600"
               initial={{ width: 0 }}
               animate={{ width: `${safeWeather.humidity}%` }}
               transition={{ duration: 1, delay: 0.5 }}
@@ -248,15 +142,23 @@ const WeatherDetails = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          <div className="detail-icon text-2xl mb-2">💨</div>
+          <motion.div 
+            className="detail-icon text-2xl mb-2"
+            animate={{ x: [0, 5, 0] }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+          >
+            💨
+          </motion.div>
           <div className="text-white/70 text-sm">{t('windSpeed')}</div>
           <div className="text-white font-semibold text-lg">{safeWeather.windSpeed} km/h</div>
-          <div className="wind-direction mt-2" style={{ height: '60px' }}>
-            <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
-              <ambientLight intensity={0.5} />
-              <directionalLight position={[5, 5, 5]} intensity={1} />
-              <WindDirectionIndicator direction={safeWeather.windDirection} />
-            </Canvas>
+          <div className="wind-direction mt-2">
+            <motion.div 
+              className="wind-arrow"
+              animate={{ rotate: safeWeather.windDirection }}
+              transition={{ duration: 1, ease: "easeInOut" }}
+            >
+              ↑
+            </motion.div>
           </div>
         </motion.div>
         
@@ -273,12 +175,18 @@ const WeatherDetails = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
-          <div className="detail-icon text-2xl mb-2">👁️</div>
+          <motion.div 
+            className="detail-icon text-2xl mb-2"
+            animate={{ opacity: [0.7, 1, 0.7] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+          >
+            👁️
+          </motion.div>
           <div className="text-white/70 text-sm">{t('visibility')}</div>
           <div className="text-white font-semibold text-lg">{safeWeather.visibility} km</div>
           <div className="liquid-progress mt-2">
             <motion.div 
-              className="liquid-progress-bar"
+              className="liquid-progress-bar bg-gradient-to-r from-gray-400 to-gray-600"
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(safeWeather.visibility / 10 * 100, 100)}%` }}
               transition={{ duration: 1, delay: 0.5 }}
@@ -299,7 +207,13 @@ const WeatherDetails = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
         >
-          <div className="detail-icon text-2xl mb-2">🌡️</div>
+          <motion.div 
+            className="detail-icon text-2xl mb-2"
+            animate={{ y: [0, -2, 0] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+          >
+            🌡️
+          </motion.div>
           <div className="text-white/70 text-sm">{t('pressure')}</div>
           <div className="text-white font-semibold text-lg">{safeWeather.pressure} hPa</div>
           <div className="pressure-indicator mt-2 text-xs text-white/60">
@@ -320,26 +234,26 @@ const WeatherDetails = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.5, duration: 0.5 }}
         >
-          <div className="detail-icon text-2xl mb-2">🌬️</div>
+          <motion.div 
+            className="detail-icon text-2xl mb-2"
+            animate={{ rotate: [0, 10, -10, 0] }}
+            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+          >
+            🌬️
+          </motion.div>
           <div className="text-white/70 text-sm">{t('airQuality')}</div>
           <div className="text-white font-semibold text-lg flex items-center justify-center">
             <span className="mr-2">{safeWeather.airQuality.aqi}</span>
             <span className="text-sm font-normal">({safeWeather.airQuality.level})</span>
           </div>
-          <div style={{ height: '60px' }}>
-            <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
-              <ambientLight intensity={0.5} />
-              <directionalLight position={[5, 5, 5]} intensity={1} />
-              <Indicator3D 
-                value={safeWeather.airQuality.aqi} 
-                maxValue={300} 
-                color={safeWeather.airQuality.aqi <= 50 ? "#4ade80" : 
-                       safeWeather.airQuality.aqi <= 100 ? "#facc15" : 
-                       safeWeather.airQuality.aqi <= 150 ? "#fb923c" : 
-                       safeWeather.airQuality.aqi <= 200 ? "#f87171" : 
-                       safeWeather.airQuality.aqi <= 300 ? "#c084fc" : "#fb7185"} 
-              />
-            </Canvas>
+          <div className="aqi-indicator mt-2">
+            <motion.div 
+              className={`aqi-circle bg-gradient-to-r ${aqiInfo.color}`}
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+            >
+              {safeWeather.airQuality.aqi}
+            </motion.div>
           </div>
         </motion.div>
         
@@ -356,25 +270,25 @@ const WeatherDetails = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.6, duration: 0.5 }}
         >
-          <div className="detail-icon text-2xl mb-2">☀️</div>
+          <motion.div 
+            className="detail-icon text-2xl mb-2"
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+          >
+            ☀️
+          </motion.div>
           <div className="text-white/70 text-sm">{t('uvIndex')}</div>
           <div className="text-white font-semibold text-lg flex items-center justify-center">
             <span className="mr-2">{safeWeather.uvIndex}</span>
             <span className="text-sm font-normal">({uvInfo.description})</span>
           </div>
-          <div style={{ height: '60px' }}>
-            <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
-              <ambientLight intensity={0.5} />
-              <directionalLight position={[5, 5, 5]} intensity={1} />
-              <Indicator3D 
-                value={safeWeather.uvIndex} 
-                maxValue={11} 
-                color={safeWeather.uvIndex <= 2 ? "#4ade80" : 
-                       safeWeather.uvIndex <= 5 ? "#facc15" : 
-                       safeWeather.uvIndex <= 7 ? "#fb923c" : 
-                       safeWeather.uvIndex <= 10 ? "#f87171" : "#c084fc"} 
-              />
-            </Canvas>
+          <div className="uv-indicator mt-2">
+            <motion.div 
+              className={`uv-bar bg-gradient-to-r ${uvInfo.color}`}
+              initial={{ width: 0 }}
+              animate={{ width: `${(safeWeather.uvIndex / 11) * 100}%` }}
+              transition={{ duration: 1, delay: 0.5 }}
+            ></motion.div>
           </div>
         </motion.div>
         
@@ -393,21 +307,36 @@ const WeatherDetails = () => {
         >
           <div className="flex justify-between items-center">
             <div className="sunrise">
-              <div className="detail-icon text-xl">🌅</div>
+              <motion.div 
+                className="detail-icon text-xl"
+                animate={{ y: [0, -3, 0] }}
+                transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+              >
+                🌅
+              </motion.div>
               <div className="text-white/70 text-xs">{t('sunrise')}</div>
               <div className="text-white font-semibold">{safeWeather.sunrise}</div>
             </div>
             
-            <div className="sun-path flex-grow mx-4 relative" style={{ height: '100px' }}>
-              <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
-                <ambientLight intensity={0.5} />
-                <directionalLight position={[5, 5, 5]} intensity={1} />
-                <SunPositionIndicator sunrise={safeWeather.sunrise} sunset={safeWeather.sunset} />
-              </Canvas>
+            <div className="sun-path flex-grow mx-4 relative">
+              <div className="sun-track"></div>
+              <motion.div 
+                className="sun-position"
+                animate={{ left: `${sunPosition * 100}%` }}
+                transition={{ duration: 1, ease: "easeInOut" }}
+              >
+                ☀️
+              </motion.div>
             </div>
             
             <div className="sunset">
-              <div className="detail-icon text-xl">🌇</div>
+              <motion.div 
+                className="detail-icon text-xl"
+                animate={{ y: [0, 3, 0] }}
+                transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+              >
+                🌇
+              </motion.div>
               <div className="text-white/70 text-xs">{t('sunset')}</div>
               <div className="text-white font-semibold">{safeWeather.sunset}</div>
             </div>
@@ -420,6 +349,7 @@ const WeatherDetails = () => {
           border-radius: 16px;
           transition: all 0.3s ease;
           transform-style: preserve-3d;
+          will-change: transform, opacity; /* 优化渲染性能 */
         }
         
         .detail-icon {
@@ -429,32 +359,90 @@ const WeatherDetails = () => {
         .weather-detail-item:hover .detail-icon {
           transform: scale(1.2);
         }
+        
+        .liquid-progress {
+          width: 100%;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
+          overflow: hidden;
+        }
+        
+        .liquid-progress-bar {
+          height: 100%;
+          border-radius: 2px;
+          transition: width 0.3s ease;
+        }
+        
+        .wind-arrow {
+          font-size: 1.5rem;
+          color: #88ccff;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+        
+        .aqi-circle {
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto;
+          font-weight: bold;
+          color: white;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .uv-bar {
+          height: 6px;
+          border-radius: 3px;
+          transition: width 0.3s ease;
+        }
+        
+        .sun-path {
+          height: 40px;
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+        
+        .sun-track {
+          width: 100%;
+          height: 2px;
+          background: linear-gradient(90deg, #ff6b35, #f7931e, #ffcc02);
+          border-radius: 1px;
+          position: relative;
+        }
+        
+        .sun-track::before {
+          content: '';
+          position: absolute;
+          top: -1px;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+          border-radius: 2px;
+          animation: sun-shine 3s infinite linear;
+        }
+        
+        .sun-position {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%) translateX(-50%);
+          font-size: 1.2rem;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+          z-index: 1;
+        }
+        
+        @keyframes sun-shine {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
       `}</style>
     </motion.div>
   );
 };
 
-// 计算太阳位置的百分比
-function calculateSunPosition(sunrise, sunset) {
-  const now = new Date();
-  const sunriseTime = parseTimeString(sunrise);
-  const sunsetTime = parseTimeString(sunset);
-  const currentTime = now.getHours() * 60 + now.getMinutes();
-  
-  // 如果当前时间在日出前或日落后，返回边界值
-  if (currentTime < sunriseTime) return 0;
-  if (currentTime > sunsetTime) return 1;
-  
-  // 计算百分比位置
-  const dayLength = sunsetTime - sunriseTime;
-  const timeElapsed = currentTime - sunriseTime;
-  return timeElapsed / dayLength;
-}
-
-// 将时间字符串解析为分钟数
-function parseTimeString(timeStr) {
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  return hours * 60 + minutes;
-}
-
 export default WeatherDetails;
+

@@ -1,18 +1,38 @@
-<!doctype html>
-<html lang="zh-CN">
+<!DOCTYPE html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="description" content="美观优雅的天气应用，支持多语言，具有3D渲染动画效果，适配深色模式和多平台" />
-    <meta name="theme-color" content="#0f172a" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>优雅天气 - 美观的天气预报应用</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- PWA相关meta标签 - 使用推荐的标准 -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="优雅天气">
+    <meta name="theme-color" content="#4a9be8">
+    <meta name="msapplication-TileColor" content="#4a9be8">
+    
+    <!-- 应用描述 -->
+    <meta name="description" content="优雅天气 - 具有WWDC25液体玻璃风格和3D动画效果的现代天气应用">
+    <meta name="keywords" content="天气,预报,3D动画,液体玻璃,WWDC25">
+    <meta name="author" content="Manus">
+    
+    <!-- Open Graph标签 -->
+    <meta property="og:title" content="优雅天气">
+    <meta property="og:description" content="具有WWDC25液体玻璃风格和3D动画效果的现代天气应用">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="/og-image.png">
+    
+    <!-- Twitter Card标签 -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="优雅天气">
+    <meta name="twitter:description" content="具有WWDC25液体玻璃风格和3D动画效果的现代天气应用">
+    
+    <title>优雅天气</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
-
