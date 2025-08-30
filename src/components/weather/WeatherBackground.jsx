@@ -26,9 +26,21 @@ const WeatherBackground = () => {
   const lastUpdateTime = useRef(0);
   const animationSpeed = useRef(1);
   const frameCount = useRef(0);
+  const skipFrames = useRef(0);
   
   // 性能优化：缓存计算结果
   const cachedTimePosition = useRef(new Map());
+  const cachedWeatherChecks = useRef({});
+  const lastWeatherCondition = useRef(weather.condition);
+  const lastTimeOfDay = useRef(timeOfDay);
+  
+  // 性能监控
+  const performanceStats = useRef({
+    frameTime: 0,
+    lastFrameStart: 0,
+    avgFrameTime: 0,
+    frameCount: 0
+  });
   
   // 性能优化：使用useMemo缓存天空颜色计算，减少重复计算
   const skyColor = useMemo(() => {
@@ -76,90 +88,107 @@ const WeatherBackground = () => {
     };
   }, [scene, skyColor]);
   
-  // 性能优化：智能帧率控制和动画节流
+  // 性能优化：极简化的帧率控制和动画节流
   useFrame((state, delta) => {
-    frameCount.current++;
-    const currentTime = state.clock.elapsedTime;
+    // 性能监控
+    const frameStart = performance.now();
     
-    // 动态调整更新频率 - 每3帧更新一次动画，减少CPU负载
-    if (frameCount.current % 3 !== 0) {
+    // 激进的跳帧策略 - 每5帧才更新一次，大幅减少CPU负载
+    skipFrames.current++;
+    if (skipFrames.current < 5) {
       return;
     }
+    skipFrames.current = 0;
     
-    // 限制delta值，防止大幅跳跃
-    const throttledDelta = Math.min(delta, 0.016); // 限制为60fps的delta
+    // 固定delta值，避免每帧计算
+    const fixedDelta = 0.016 * 5; // 5帧的累积时间
     
-    // 动态调整动画速度基于性能
-    const fps = 1 / delta;
-    if (fps < 30) {
-      animationSpeed.current = Math.max(0.5, animationSpeed.current * 0.95);
-    } else if (fps > 50) {
-      animationSpeed.current = Math.min(1, animationSpeed.current * 1.02);
-    }
-    
-    const adjustedDelta = throttledDelta * animationSpeed.current;
-    
-    // 云朵动画 - 简化计算
+    // 简化的动画更新 - 移除复杂的性能检测
     if (cloudsRef.current) {
-      cloudsRef.current.rotation.y += adjustedDelta * 0.02; // 减慢动画速度
+      cloudsRef.current.rotation.y += fixedDelta * 0.01;
     }
     
-    // 条件性动画更新 - 只在相关天气时执行
-    const isRainy = ['rainy', 'drizzle', 'thunderstorm'].includes(weather.condition);
-    if (rainRef.current && isRainy) {
-      rainRef.current.rotation.y += adjustedDelta * 0.05;
+    // 缓存天气条件检查，避免每帧重复计算
+    if (weather.condition !== lastWeatherCondition.current) {
+      cachedWeatherChecks.current = {
+        isRainy: ['rainy', 'drizzle', 'thunderstorm'].includes(weather.condition),
+        isSnowy: weather.condition === 'snow',
+        isSunny: ['sunny', 'clear', 'partly-cloudy'].includes(weather.condition)
+      };
+      lastWeatherCondition.current = weather.condition;
     }
     
-    const isSnowy = weather.condition === 'snow';
-    if (snowRef.current && isSnowy) {
-      snowRef.current.rotation.y += adjustedDelta * 0.03;
+    // 使用缓存的条件检查
+    if (rainRef.current && cachedWeatherChecks.current.isRainy) {
+      rainRef.current.rotation.y += fixedDelta * 0.03;
     }
     
-    // 太阳位置更新 - 使用缓存的计算结果
-    const isSunny = ['sunny', 'clear', 'partly-cloudy'].includes(weather.condition);
-    if (sunRef.current && isSunny && timeOfDay !== 'night') {
-      const timePosition = getTimePosition(timeOfDay);
-      // 使用更简单的位置计算
-      sunRef.current.position.x = Math.sin(timePosition) * 12;
-      sunRef.current.position.y = Math.cos(timePosition) * 12 + 5;
+    if (snowRef.current && cachedWeatherChecks.current.isSnowy) {
+      snowRef.current.rotation.y += fixedDelta * 0.02;
     }
     
-    // 月亮动画 - 只在夜晚时执行
+    // 太阳位置更新 - 只在时间变化时更新
+    if (sunRef.current && cachedWeatherChecks.current.isSunny && timeOfDay !== 'night') {
+      if (timeOfDay !== lastTimeOfDay.current) {
+        const timePosition = getTimePosition(timeOfDay);
+        sunRef.current.position.x = Math.sin(timePosition) * 12;
+        sunRef.current.position.y = Math.cos(timePosition) * 12 + 5;
+        lastTimeOfDay.current = timeOfDay;
+      }
+    }
+    
+    // 月亮动画 - 极简化
     if (moonRef.current && timeOfDay === 'night') {
-      moonRef.current.rotation.y += adjustedDelta * 0.005; // 非常缓慢的旋转
+      moonRef.current.rotation.y += fixedDelta * 0.003;
+    }
+    
+    // 性能监控 - 记录帧时间
+    const frameEnd = performance.now();
+    const frameTime = frameEnd - frameStart;
+    performanceStats.current.frameTime = frameTime;
+    performanceStats.current.frameCount++;
+    
+    // 每100帧输出一次性能统计
+    if (performanceStats.current.frameCount % 100 === 0) {
+      performanceStats.current.avgFrameTime = 
+        (performanceStats.current.avgFrameTime + frameTime) / 2;
+      
+      if (performanceStats.current.avgFrameTime > 5) {
+        console.warn(`WeatherBackground frame time: ${performanceStats.current.avgFrameTime.toFixed(2)}ms`);
+      }
     }
   });
   
-  // 性能优化：使用useMemo缓存天气效果渲染，减少重复创建
+  // 性能优化：极简化粒子效果，大幅减少粒子数量
   const weatherEffect = useMemo(() => {
     const effects = {
       rainy: {
-        count: 100, // 大幅减少粒子数量
-        size: 0.8,
-        speed: 8,
+        count: 30, // 极大幅减少粒子数量
+        size: 1.2,
+        speed: 4,
         color: "#88ccff",
-        scale: [15, 15, 15]
+        scale: [10, 10, 10]
       },
       drizzle: {
-        count: 60,
-        size: 0.5,
-        speed: 5,
+        count: 20,
+        size: 0.8,
+        speed: 3,
         color: "#aaccff",
-        scale: [12, 12, 12]
+        scale: [8, 8, 8]
       },
       thunderstorm: {
-        count: 120,
-        size: 1,
-        speed: 12,
+        count: 40,
+        size: 1.5,
+        speed: 6,
         color: "#88ccff",
-        scale: [18, 18, 18]
+        scale: [12, 12, 12]
       },
       snow: {
-        count: 80,
-        size: 1.5,
-        speed: 1,
+        count: 25,
+        size: 2,
+        speed: 0.5,
         color: "#ffffff",
-        scale: [15, 15, 15]
+        scale: [10, 10, 10]
       }
     };
     
@@ -172,9 +201,9 @@ const WeatherBackground = () => {
           count={effect.count}
           size={effect.size}
           speed={effect.speed}
-          opacity={0.6}
+          opacity={0.5}
           scale={effect.scale}
-          noise={[2, 2, 2]} // 减少噪声复杂度
+          noise={[1, 1, 1]} // 极简化噪声复杂度
           color={effect.color}
         />
         {weather.condition === 'thunderstorm' && (
@@ -190,15 +219,15 @@ const WeatherBackground = () => {
     );
   }, [weather.condition]);
   
-  // 性能优化：使用useMemo缓存云层渲染，减少重复计算
+  // 性能优化：极简化云层渲染，大幅减少云朵数量
   const clouds = useMemo(() => {
     const cloudConfigs = {
-      cloudy: { count: 6, opacity: 0.6 },
-      'partly-cloudy': { count: 3, opacity: 0.4 },
-      rainy: { count: 5, opacity: 0.7 },
-      drizzle: { count: 4, opacity: 0.5 },
-      thunderstorm: { count: 7, opacity: 0.8 },
-      snow: { count: 4, opacity: 0.5 }
+      cloudy: { count: 3, opacity: 0.6 },
+      'partly-cloudy': { count: 2, opacity: 0.4 },
+      rainy: { count: 3, opacity: 0.7 },
+      drizzle: { count: 2, opacity: 0.5 },
+      thunderstorm: { count: 4, opacity: 0.8 },
+      snow: { count: 2, opacity: 0.5 }
     };
     
     const config = cloudConfigs[weather.condition];
@@ -221,10 +250,10 @@ const WeatherBackground = () => {
             key={i}
             position={position}
             opacity={config.opacity}
-            speed={0.2} // 减慢云朵内部动画
-            width={6} // 减小云朵尺寸
-            depth={1}
-            segments={6} // 大幅减少几何体复杂度
+            speed={0.1} // 极大减慢云朵内部动画
+            width={4} // 进一步减小云朵尺寸
+            depth={0.5}
+            segments={3} // 极简化几何体复杂度
           />
         ))}
       </group>
@@ -237,7 +266,7 @@ const WeatherBackground = () => {
       return (
         <group ref={moonRef} position={[8, 6, -8]}>
           <mesh>
-            <sphereGeometry args={[1.5, 12, 12]} /> {/* 减少几何体复杂度 */}
+            <sphereGeometry args={[1.5, 8, 8]} /> {/* 极简化几何体复杂度 */}
             <meshStandardMaterial 
               color="#e8e8ff" 
               emissive="#666688"
@@ -259,17 +288,17 @@ const WeatherBackground = () => {
             color={sunColor}
           />
           <mesh>
-            <sphereGeometry args={[1.2, 12, 12]} /> {/* 减少几何体复杂度 */}
+            <sphereGeometry args={[1.2, 8, 8]} /> {/* 极简化几何体复杂度 */}
             <meshBasicMaterial 
               color={sunColor} 
               toneMapped={false}
             />
           </mesh>
           <Sparkles 
-            count={6} // 大幅减少粒子数量
-            size={3}
-            scale={[3, 3, 3]}
-            speed={0.2}
+            count={3} // 极简化粒子数量
+            size={4}
+            scale={[2, 2, 2]}
+            speed={0.1}
             color={sunColor}
           />
         </group>
@@ -290,14 +319,14 @@ const WeatherBackground = () => {
         castShadow={false} // 禁用阴影以提高性能
       />
       
-      {/* 天空背景 - 简化几何体 */}
+      {/* 天空背景 - 极简化几何体 */}
       <mesh ref={skyRef} position={[0, 0, -15]}>
-        <planeGeometry args={[80, 80]} />
+        <planeGeometry args={[60, 60]} />
         <meshBasicMaterial 
           color={skyColor} 
-          side={THREE.DoubleSide}
+          side={THREE.FrontSide}
           transparent
-          opacity={0.3}
+          opacity={0.2}
         />
       </mesh>
       
