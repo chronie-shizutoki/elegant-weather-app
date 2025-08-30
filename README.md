@@ -51,7 +51,7 @@ A beautiful and elegant weather application featuring WWDC25-style liquid glass 
 
 ```bash
 # Clone the repository
-git clone https://github.com/quiettimejsg/elegant-weather-app.git
+git clone https://github.com/chronie-shizutoki/elegant-weather-app.git
 
 # Navigate to the project directory
 cd elegant-weather-app

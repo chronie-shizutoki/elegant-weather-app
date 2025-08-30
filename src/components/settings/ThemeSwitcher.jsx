@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -7,14 +7,13 @@ import { useTheme } from '../../contexts/ThemeContext';
  */
 const ThemeSwitcher = ({ className }) => {
   const { t } = useTranslation();
-  const { theme, setTheme } = useTheme();
+  const { isDarkMode, toggleDarkMode } = useTheme();
   const [isAnimating, setIsAnimating] = useState(false);
   
   // 切换主题
   const toggleTheme = () => {
     setIsAnimating(true);
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
+    toggleDarkMode();
     
     // 动画结束后重置状态
     setTimeout(() => {
@@ -30,7 +29,7 @@ const ThemeSwitcher = ({ className }) => {
         aria-label={t('switchTheme')}
       >
         <span className="theme-icon">
-          {theme === 'light' ? '🌙' : '☀️'}
+          {isDarkMode ? '☀️' : '🌙'}
         </span>
       </button>
       
