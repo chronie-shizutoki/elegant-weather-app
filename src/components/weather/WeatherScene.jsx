@@ -22,7 +22,7 @@ const WeatherScene = () => {
       // 优化WebGL设置
       gl.setClearColor(0x000000, 0);
       gl.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 限制像素比
-      gl.outputEncoding = THREE.sRGBEncoding;
+      gl.outputColorSpace = THREE.SRGBColorSpace;
       gl.toneMapping = THREE.ACESFilmicToneMapping;
       gl.toneMappingExposure = 1.0;
       
