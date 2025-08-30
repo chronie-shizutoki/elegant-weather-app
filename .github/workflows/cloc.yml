@@ -1,0 +1,58 @@
+name: Code Lines Count (CLOC)
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  cloc:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install cloc
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cloc
+        
+    - name: Run CLOC analysis
+      run: |
+        echo "## 📊 代码统计报告" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 总体统计" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        cloc . \
+          --exclude-dir=ui,dist,node_modules,.git,.github,coverage,build,out \
+          --exclude-ext=lock \
+          --not-match-f="package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock" \
+          --report-file=cloc_summary.txt
+        cat cloc_summary.txt >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+    - name: Detailed analysis by language
+      run: |
+        echo "### 按语言分类统计" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        cloc . \
+          --exclude-dir=ui,dist,node_modules,.git,.github,coverage,build,out \
+          --exclude-ext=lock \
+          --not-match-f="package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock" \
+          --by-file-by-lang \
+          --report-file=cloc_detailed.txt
+        head -50 cloc_detailed.txt >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        
+    - name: Upload CLOC reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: cloc-reports
+        path: |
+          cloc_summary.txt
+          cloc_detailed.txt
+        retention-days: 30
