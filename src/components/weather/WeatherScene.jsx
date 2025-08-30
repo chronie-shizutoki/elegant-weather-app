@@ -14,7 +14,7 @@ const WeatherScene = () => {
   const isInitialized = useRef(false);
   
   // WebGL上下文创建回调 - 确保只创建一次
-  const onCreated = useCallback(({ gl, scene, camera }) => {
+  const onCreated = useCallback(({ gl }) => {
     if (!isInitialized.current) {
       glRef.current = gl;
       isInitialized.current = true;
